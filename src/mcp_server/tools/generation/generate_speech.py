@@ -39,6 +39,26 @@ async def generate_speech(
         # Calculate cost
         cost = calculate_speech_cost(text)
         
+        # Get audio duration
+        audio_duration = result.get("duration_seconds", 0)
+        
+        # If project is specified, check against expected duration
+        duration_warning = None
+        if project_id:
+            project = ProjectManager.get_project(project_id)
+            if project.target_duration:
+                # Calculate effective duration after frame trimming
+                scene_count = len(project.scenes) if project.scenes else 3  # Default estimate
+                trimmed_duration = 0.5 * (scene_count - 1)
+                effective_duration = project.target_duration - trimmed_duration
+                
+                if audio_duration > effective_duration:
+                    duration_warning = (
+                        f"⚠️ Audio is {audio_duration - effective_duration:.1f}s too long! "
+                        f"Target: {effective_duration:.1f}s (after {trimmed_duration:.1f}s transitions), "
+                        f"Actual: {audio_duration:.1f}s. Consider trimming the script or increasing speed."
+                    )
+        
         # Create asset record
         asset = Asset(
             type=AssetType.SPEECH,
@@ -120,17 +140,22 @@ async def generate_speech(
                 "voice": voice,
                 "voice_description": voice_options.get(voice, "Custom voice"),
                 "speed": speed,
-                "character_count": len(text)
+                "character_count": len(text),
+                "duration_seconds": audio_duration
             },
             "project_association": {
                 "project_id": project_id,
                 "scene_id": scene_id
             } if project_id else None,
             "available_voices": voice_options,
+            "duration_warning": duration_warning,
             "next_steps": [
                 "Generate visuals for your narration",
                 "Add background music with generate_music()",
                 "Assemble everything with assemble_video()"
+            ] if not duration_warning else [
+                "Consider regenerating with shorter text or faster speed",
+                "Or extend your video duration to match the audio"
             ]
         }
         

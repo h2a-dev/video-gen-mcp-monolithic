@@ -38,12 +38,17 @@ This project doesn't have a script yet. To add a script:
         word_count = len(project.script.split())
         sentence_count = len(re.split(r'[.!?]+', project.script))
         
-        # Estimate speaking duration (average 150 words per minute)
-        estimated_speaking_time = (word_count / 150) * 60
+        # Estimate speaking duration (140 words per minute for realistic pacing)
+        estimated_speaking_time = (word_count / 140) * 60
         
         # Calculate scene recommendations
         target_duration = project.target_duration or estimated_speaking_time
         optimal_scenes = _calculate_optimal_scenes(target_duration)
+        
+        # Calculate effective duration after frame trimming
+        trimmed_duration = 0.5 * (optimal_scenes - 1)  # 0.5s per scene after first
+        effective_duration = target_duration - trimmed_duration
+        recommended_script_duration = effective_duration - 1  # 1 second buffer
         
         # Parse script into potential scenes
         script_segments = _segment_script(project.script, optimal_scenes)
@@ -54,9 +59,11 @@ This project doesn't have a script yet. To add a script:
 - **Word Count**: {word_count} words
 - **Estimated Speaking Time**: {estimated_speaking_time:.1f} seconds
 - **Target Video Duration**: {target_duration} seconds
+- **Effective Duration**: {effective_duration:.1f} seconds (after {trimmed_duration:.1f}s of transitions)
+- **Recommended Script Duration**: {recommended_script_duration:.1f} seconds
 - **Platform**: {project.platform}
 
-## 🎯 Scene Planning
+{"⚠️ **WARNING**: Your script is " + f"{estimated_speaking_time - recommended_script_duration:.1f}" + " seconds too long! Consider trimming to avoid rushed delivery.\\n\\n" if estimated_speaking_time > recommended_script_duration else ""}## 🎯 Scene Planning
 Based on your script and target duration, I recommend **{optimal_scenes} scenes**:
 
 ### Optimal Scene Structure:

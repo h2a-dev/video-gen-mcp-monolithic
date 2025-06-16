@@ -21,8 +21,9 @@ async def analyze_script(
         sentence_count = len(re.split(r'[.!?]+', script.strip()))
         char_count = len(script)
         
-        # Estimate speaking duration (150 words per minute average)
-        estimated_speaking_seconds = (word_count / 150) * 60
+        # Estimate speaking duration (140 words per minute for more realistic pacing)
+        # This accounts for pauses and natural speech rhythm
+        estimated_speaking_seconds = (word_count / 140) * 60
         
         # Get platform recommendations if specified
         platform_info = {}
@@ -42,6 +43,10 @@ async def analyze_script(
         
         # Calculate scene recommendations
         scene_analysis = _analyze_scene_requirements(script, target_duration)
+        
+        # Adjust for frame trimming (0.5 seconds per scene after the first)
+        trimmed_duration = 0.5 * (scene_analysis["recommended_scenes"] - 1)
+        effective_duration = target_duration - trimmed_duration
         
         # Identify key moments and themes
         key_moments = _extract_key_moments(script)
@@ -65,8 +70,11 @@ async def analyze_script(
                 },
                 "duration_analysis": {
                     "target_duration": target_duration,
+                    "effective_duration": round(effective_duration, 1),
                     "speaking_duration": round(estimated_speaking_seconds, 1),
-                    "pacing": _determine_pacing(target_duration, estimated_speaking_seconds)
+                    "trimmed_seconds": round(trimmed_duration, 1),
+                    "pacing": _determine_pacing(effective_duration, estimated_speaking_seconds),
+                    "recommended_script_duration": round(effective_duration - 1, 1)  # 1 second buffer
                 },
                 "scene_analysis": scene_analysis,
                 "key_moments": key_moments,
@@ -235,11 +243,19 @@ def _get_production_tips(target_duration: int, speaking_duration: float) -> List
     """Get production tips based on analysis."""
     tips = []
     
+    # Calculate effective duration after frame trimming
+    # Assuming average of 3-4 scenes for most videos
+    avg_scenes = min(4, max(2, target_duration // 15))
+    trimmed_duration = 0.5 * (avg_scenes - 1)
+    effective_duration = target_duration - trimmed_duration
+    
     # Pacing tips
-    if speaking_duration > target_duration:
-        tips.append(f"Script is {speaking_duration - target_duration:.0f}s too long - consider trimming")
-    elif speaking_duration < target_duration * 0.7:
+    if speaking_duration > effective_duration:
+        tips.append(f"Script is {speaking_duration - effective_duration:.0f}s too long (accounting for transitions) - trim to {effective_duration - 1:.0f}s")
+    elif speaking_duration < effective_duration * 0.7:
         tips.append("Add visual sequences or slower pacing to fill time")
+    
+    tips.append(f"Target script duration: {effective_duration - 1:.0f}s (includes 1s buffer for frame trimming)")
     
     # Duration-based tips
     if target_duration <= 30:

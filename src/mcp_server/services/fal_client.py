@@ -153,6 +153,8 @@ class FALClient:
             return {
                 "success": True,
                 "url": result.get("audio", {}).get("url"),
+                "duration_ms": result.get("duration_ms", 0),
+                "duration_seconds": result.get("duration_ms", 0) / 1000.0,
                 "model": "minimax_speech",
                 "text": text,
                 "voice": voice,
