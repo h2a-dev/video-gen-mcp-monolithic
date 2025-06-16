@@ -37,6 +37,9 @@ async def create_project(
         Project details including ID, settings, and cost estimate
     """
     from .tools.project import create_project as impl
+    # Convert string parameters to proper types if needed
+    if target_duration is not None and isinstance(target_duration, str):
+        target_duration = int(target_duration)
     return await impl(title, platform, script, target_duration, aspect_ratio)
 
 
@@ -60,6 +63,11 @@ async def add_scene(
         Scene details with ID and timeline position
     """
     from .tools.project import add_scene as impl
+    # Convert string parameters to proper types if needed
+    if isinstance(duration, str):
+        duration = int(duration)
+    if position is not None and isinstance(position, str):
+        position = int(position)
     return await impl(project_id, description, duration, position)
 
 
@@ -130,6 +138,9 @@ async def download_assets(
         Download summary and local paths
     """
     from .tools.assembly import download_assets as impl
+    # Convert string parameters to proper types if needed
+    if isinstance(parallel_downloads, str):
+        parallel_downloads = int(parallel_downloads)
     return await impl(asset_urls, project_id, asset_type, parallel_downloads)
 
 
@@ -157,6 +168,13 @@ async def add_audio_track(
         Output path with mixed audio
     """
     from .tools.assembly import add_audio_track as impl
+    # Convert string parameters to proper types if needed
+    if isinstance(volume_adjustment, str):
+        volume_adjustment = float(volume_adjustment)
+    if isinstance(fade_in, str):
+        fade_in = float(fade_in)
+    if isinstance(fade_out, str):
+        fade_out = float(fade_out)
     return await impl(video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out)
 
 
@@ -215,6 +233,11 @@ async def generate_video_from_image(
         Generated video URL and metadata
     """
     from .tools.generation import generate_video_from_image as impl
+    # Convert string parameters to proper types if needed
+    if isinstance(duration, str):
+        duration = int(duration)
+    if isinstance(motion_strength, str):
+        motion_strength = float(motion_strength)
     return await impl(image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id)
 
 
@@ -240,6 +263,9 @@ async def generate_music(
         Generated music URL and metadata
     """
     from .tools.generation import generate_music as impl
+    # Convert string parameters to proper types if needed
+    if isinstance(duration, str):
+        duration = int(duration)
     return await impl(prompt, duration, project_id)
 
 
@@ -265,6 +291,9 @@ async def generate_speech(
         Generated speech audio URL and metadata
     """
     from .tools.generation import generate_speech as impl
+    # Convert string parameters to proper types if needed
+    if isinstance(speed, str):
+        speed = float(speed)
     return await impl(text, voice, speed, project_id, scene_id)
 
 
@@ -396,6 +425,9 @@ async def analyze_script(
         Analysis with scene suggestions, duration estimates, and key moments
     """
     from .tools.utility import analyze_script as impl
+    # Convert string parameters to proper types if needed
+    if target_duration is not None and isinstance(target_duration, str):
+        target_duration = int(target_duration)
     return await impl(script, target_duration, platform)
 
 
