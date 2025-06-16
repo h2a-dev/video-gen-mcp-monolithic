@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, Optional, List
 import os
+import sys
 from pathlib import Path
 from ...models import ProjectManager, ProjectStatus
 from ...config import settings
@@ -15,7 +16,6 @@ async def assemble_video(
     quality_preset: str = "high"
 ) -> Dict[str, Any]:
     """Assemble scenes into a complete video using ffmpeg."""
-    import sys
     
     try:
         print(f"[AssembleVideo] Starting assembly for project {project_id}", file=sys.stderr)

@@ -3,6 +3,7 @@
 import os
 import asyncio
 import json
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import subprocess
@@ -439,8 +440,6 @@ class FFmpegWrapper:
     
     async def _run_ffmpeg(self, cmd: List[str], timeout: int = 120) -> Dict[str, Any]:
         """Run ffmpeg command asynchronously with timeout and progress monitoring."""
-        import sys
-        
         try:
             # Log the command being executed
             print(f"[FFmpeg] Executing: {' '.join(cmd[:3])}...", file=sys.stderr)
