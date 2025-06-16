@@ -15,6 +15,10 @@ async def generate_speech(
 ) -> Dict[str, Any]:
     """Generate speech/voiceover from text."""
     try:
+        # Convert speed to float if it's passed as string
+        if isinstance(speed, str):
+            speed = float(speed)
+        
         # Validate text length
         if len(text) > 5000:
             return {

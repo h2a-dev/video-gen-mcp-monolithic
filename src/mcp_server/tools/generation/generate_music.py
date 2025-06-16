@@ -13,6 +13,10 @@ async def generate_music(
 ) -> Dict[str, Any]:
     """Generate background music from a text description."""
     try:
+        # Convert duration to int if it's passed as string
+        if isinstance(duration, str):
+            duration = int(duration)
+        
         # Lyria2 generates ~95 seconds of music
         actual_duration = 95
         

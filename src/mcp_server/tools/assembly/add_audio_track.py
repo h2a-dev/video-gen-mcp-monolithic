@@ -16,6 +16,14 @@ async def add_audio_track(
 ) -> Dict[str, Any]:
     """Add audio track to video without re-encoding video stream."""
     try:
+        # Convert numeric parameters to float if passed as strings
+        if isinstance(volume_adjustment, str):
+            volume_adjustment = float(volume_adjustment)
+        if isinstance(fade_in, str):
+            fade_in = float(fade_in)
+        if isinstance(fade_out, str):
+            fade_out = float(fade_out)
+        
         # Validate inputs
         video_file = Path(video_path)
         audio_file = Path(audio_path)

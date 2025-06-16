@@ -12,6 +12,10 @@ async def analyze_script(
 ) -> Dict[str, Any]:
     """Analyze a script for video production insights."""
     try:
+        # Convert target_duration to int if it's passed as string
+        if target_duration is not None and isinstance(target_duration, str):
+            target_duration = int(target_duration)
+        
         # Basic text analysis
         word_count = len(script.split())
         sentence_count = len(re.split(r'[.!?]+', script.strip()))

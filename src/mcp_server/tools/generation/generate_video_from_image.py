@@ -17,6 +17,14 @@ async def generate_video_from_image(
 ) -> Dict[str, Any]:
     """Convert a single image to video with AI-generated motion."""
     try:
+        # Convert duration to int if it's passed as string
+        if isinstance(duration, str):
+            duration = int(duration)
+        
+        # Convert motion_strength to float if it's passed as string
+        if isinstance(motion_strength, str):
+            motion_strength = float(motion_strength)
+        
         # Validate duration
         if duration not in [5, 10]:
             return {

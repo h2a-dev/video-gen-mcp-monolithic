@@ -14,6 +14,10 @@ async def create_project(
 ) -> Dict[str, Any]:
     """Initialize a new video project with smart defaults based on platform."""
     try:
+        # Convert target_duration to int if it's passed as string
+        if target_duration is not None and isinstance(target_duration, str):
+            target_duration = int(target_duration)
+        
         # Get platform defaults if not specified
         if not aspect_ratio:
             aspect_ratio = get_platform_spec(platform, "default_aspect_ratio") or "16:9"

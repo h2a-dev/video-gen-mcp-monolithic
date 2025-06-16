@@ -13,6 +13,10 @@ async def download_assets(
 ) -> Dict[str, Any]:
     """Download generated assets from FAL or other sources."""
     try:
+        # Convert parallel_downloads to int if it's passed as string
+        if isinstance(parallel_downloads, str):
+            parallel_downloads = int(parallel_downloads)
+        
         # Validate project exists
         project = ProjectManager.get_project(project_id)
         

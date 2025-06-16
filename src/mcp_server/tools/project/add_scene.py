@@ -13,6 +13,14 @@ async def add_scene(
 ) -> Dict[str, Any]:
     """Add a scene to the project timeline."""
     try:
+        # Convert duration to int if it's passed as string
+        if isinstance(duration, str):
+            duration = int(duration)
+        
+        # Convert position to int if it's passed as string
+        if position is not None and isinstance(position, str):
+            position = int(position)
+        
         # Validate duration
         if duration not in [5, 10]:
             return {
