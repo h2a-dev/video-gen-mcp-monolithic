@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from ...models import ProjectManager, ProjectStatus
 from ...config import settings
-from ...services import asset_storage
+from ...services import asset_storage, ffmpeg_wrapper
 
 
 async def assemble_video(
@@ -51,28 +51,60 @@ async def assemble_video(
         output_filename = f"{project.title.replace(' ', '_')}_{project.platform}.{output_format}"
         output_path = settings.get_project_dir(project_id) / output_filename
         
-        # Create concat file for ffmpeg
-        concat_file = settings.temp_dir / f"{project_id}_concat.txt"
+        # Collect video paths
         video_paths = []
         
-        with open(concat_file, 'w') as f:
-            for scene in scenes:
-                # Get video asset
-                video_asset = next((a for a in scene.assets if a.type == "video"), None)
-                if video_asset and video_asset.local_path:
-                    f.write(f"file '{video_asset.local_path}'\n")
-                    video_paths.append(video_asset.local_path)
+        for scene in scenes:
+            # Get video asset
+            video_asset = next((a for a in scene.assets if a.type == "video"), None)
+            if video_asset and video_asset.local_path:
+                video_paths.append(video_asset.local_path)
         
-        # Build ffmpeg command
-        ffmpeg_cmd = _build_ffmpeg_command(
-            concat_file,
-            output_path,
-            quality_preset,
-            project.aspect_ratio
+        # Use ffmpeg_wrapper to concatenate videos
+        concat_result = await ffmpeg_wrapper.concat_videos(
+            video_paths=video_paths,
+            output_path=str(output_path),
+            quality_preset=quality_preset
         )
         
-        # For MVP, we'll return the command to be executed
-        # In production, this would execute the command
+        if not concat_result["success"]:
+            return {
+                "success": False,
+                "error": f"Failed to assemble video: {concat_result['error']}"
+            }
+        
+        # Check if we have global audio tracks to add
+        if project.global_audio_tracks:
+            # Add global audio tracks one by one
+            current_output = str(output_path)
+            for i, audio_track in enumerate(project.global_audio_tracks):
+                if audio_track.local_path:
+                    temp_output = settings.temp_dir / f"{project_id}_audio_{i}.{output_format}"
+                    
+                    # Determine track type based on metadata
+                    track_type = "background"
+                    if audio_track.type == "speech":
+                        track_type = "voiceover"
+                    elif audio_track.type == "music":
+                        track_type = "music"
+                    
+                    # Add audio track
+                    audio_result = await ffmpeg_wrapper.add_audio_track(
+                        video_path=current_output,
+                        audio_path=audio_track.local_path,
+                        output_path=str(temp_output),
+                        audio_volume=0.3 if track_type == "background" else 1.0
+                    )
+                    
+                    if audio_result["success"]:
+                        # If not the final output, remove intermediate file
+                        if current_output != str(output_path):
+                            Path(current_output).unlink(missing_ok=True)
+                        current_output = str(temp_output)
+            
+            # Move final output to correct location
+            if current_output != str(output_path):
+                Path(current_output).rename(output_path)
         
         # Update project status
         project.status = ProjectStatus.COMPLETED
@@ -81,28 +113,37 @@ async def assemble_video(
         total_duration = sum(scene.duration for scene in scenes)
         total_size_estimate = total_duration * 5  # MB estimate
         
+        # Get actual file info
+        video_info = await ffmpeg_wrapper.get_video_info(str(output_path))
+        actual_size_mb = round(os.path.getsize(output_path) / (1024 * 1024), 2)
+        
         return {
             "success": True,
             "output": {
                 "path": str(output_path),
                 "format": output_format,
-                "duration": total_duration,
+                "duration": video_info.get("duration", total_duration),
                 "scenes_count": len(scenes),
-                "estimated_size_mb": total_size_estimate
+                "size_mb": actual_size_mb,
+                "resolution": f"{video_info.get('width', 0)}x{video_info.get('height', 0)}",
+                "fps": video_info.get("fps", 0)
             },
             "assembly_details": {
                 "quality_preset": quality_preset,
                 "aspect_ratio": project.aspect_ratio,
                 "platform": project.platform,
-                "video_files": len(video_paths)
+                "video_files": len(video_paths),
+                "audio_tracks_added": len(project.global_audio_tracks),
+                "dynamic_transitions": True,
+                "frames_trimmed": concat_result.get("trimmed_frames", 0)
             },
-            "ffmpeg_command": ffmpeg_cmd,
             "next_steps": [
-                "Add audio tracks with add_audio_track() if needed",
                 "Export final video with platform optimizations using export_final_video()",
+                "Add additional audio tracks with add_audio_track() if needed",
                 "Download the video from the output path"
             ],
-            "note": "In production, this would execute ffmpeg. For MVP, use the provided command."
+            "status": "Video successfully assembled with dynamic transitions!",
+            "note": "First 15 frames trimmed from each scene (except the first) for smoother, more dynamic transitions"
         }
         
     except Exception as e:
@@ -116,53 +157,3 @@ async def assemble_video(
         }
 
 
-def _build_ffmpeg_command(
-    concat_file: Path,
-    output_path: Path,
-    quality_preset: str,
-    aspect_ratio: str
-) -> str:
-    """Build ffmpeg command for video assembly."""
-    
-    # Quality presets
-    quality_settings = {
-        "low": {
-            "crf": 28,
-            "preset": "faster",
-            "bitrate": "1M"
-        },
-        "medium": {
-            "crf": 23,
-            "preset": "medium",
-            "bitrate": "2M"
-        },
-        "high": {
-            "crf": 18,
-            "preset": "slow",
-            "bitrate": "5M"
-        }
-    }
-    
-    q = quality_settings.get(quality_preset, quality_settings["high"])
-    
-    # Build command
-    cmd_parts = [
-        settings.ffmpeg_path,
-        "-f", "concat",
-        "-safe", "0",
-        "-i", f'"{concat_file}"',
-        "-c:v", "libx264",
-        "-preset", q["preset"],
-        "-crf", str(q["crf"]),
-        "-b:v", q["bitrate"],
-        "-pix_fmt", "yuv420p",  # Compatibility
-        "-movflags", "+faststart",  # Web optimization
-    ]
-    
-    # Add audio settings (copy if exists)
-    cmd_parts.extend(["-c:a", "aac", "-b:a", "192k"])
-    
-    # Output file
-    cmd_parts.append(f'"{output_path}"')
-    
-    return " ".join(cmd_parts)

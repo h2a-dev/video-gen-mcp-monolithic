@@ -33,31 +33,147 @@ class FFmpegWrapper:
         output_path: str,
         quality_preset: str = "high"
     ) -> Dict[str, Any]:
-        """Concatenate multiple videos without re-encoding."""
+        """Concatenate multiple videos with dynamic transitions by trimming first 15 frames from clips starting from the second one."""
         try:
-            # Create concat file
-            concat_file = settings.temp_dir / f"concat_{os.getpid()}.txt"
-            with open(concat_file, 'w') as f:
-                for video_path in video_paths:
-                    f.write(f"file '{video_path}'\n")
+            # Quality presets
+            quality_settings = {
+                "low": {"crf": 28, "preset": "faster"},
+                "medium": {"crf": 23, "preset": "medium"},
+                "high": {"crf": 18, "preset": "slow"}
+            }
             
-            # Build command - use stream copy to avoid re-encoding
-            cmd = [
-                self.ffmpeg_path,
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_file),
-                "-c", "copy",  # Copy streams without re-encoding
-                "-movflags", "+faststart",  # Web optimization
-                "-y",  # Overwrite output
-                str(output_path)
-            ]
+            q = quality_settings.get(quality_preset, quality_settings["high"])
+            
+            # For dynamic transitions, we need to use filter_complex
+            # Build filter complex string for trimming and concatenation
+            filter_parts = []
+            concat_inputs = []
+            
+            for i, video_path in enumerate(video_paths):
+                if i == 0:
+                    # First video - use as is
+                    concat_inputs.extend([f"[{i}:v]", f"[{i}:a]"])
+                else:
+                    # Subsequent videos - trim first 15 frames (approximately 0.5 seconds at 30fps)
+                    # We'll use trim to drop frames and create a more dynamic transition
+                    filter_parts.append(f"[{i}:v]trim=start_frame=15,setpts=PTS-STARTPTS[v{i}]")
+                    filter_parts.append(f"[{i}:a]atrim=start=0.5,asetpts=PTS-STARTPTS[a{i}]")
+                    concat_inputs.extend([f"[v{i}]", f"[a{i}]"])
+            
+            # Create the full filter complex
+            if len(video_paths) == 1:
+                # Single video, no trimming needed
+                cmd = [
+                    self.ffmpeg_path,
+                    "-i", video_paths[0],
+                    "-c:v", "libx264",
+                    "-preset", q["preset"],
+                    "-crf", str(q["crf"]),
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-movflags", "+faststart",
+                    "-y",
+                    str(output_path)
+                ]
+            else:
+                # Multiple videos with trimming
+                if filter_parts:
+                    filter_complex = ";".join(filter_parts) + ";"
+                else:
+                    filter_complex = ""
+                
+                # Add concatenation
+                filter_complex += "".join(concat_inputs) + f"concat=n={len(video_paths)}:v=1:a=1[outv][outa]"
+                
+                # Build command with filter_complex
+                cmd = [self.ffmpeg_path]
+                
+                # Add all input files
+                for video_path in video_paths:
+                    cmd.extend(["-i", str(video_path)])
+                
+                # Add filter complex
+                cmd.extend([
+                    "-filter_complex", filter_complex,
+                    "-map", "[outv]",
+                    "-map", "[outa]",
+                    "-c:v", "libx264",
+                    "-preset", q["preset"],
+                    "-crf", str(q["crf"]),
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-movflags", "+faststart",
+                    "-y",
+                    str(output_path)
+                ])
             
             # Execute command
             result = await self._run_ffmpeg(cmd)
             
-            # Clean up
-            concat_file.unlink(missing_ok=True)
+            if not result.get("success", False):
+                # If complex filter fails, try simpler approach
+                # Create temp files for trimmed videos
+                trimmed_paths = []
+                for i, video_path in enumerate(video_paths):
+                    if i == 0:
+                        trimmed_paths.append(video_path)
+                    else:
+                        # Trim first 15 frames from this video
+                        trimmed_path = settings.temp_dir / f"trimmed_{os.getpid()}_{i}.mp4"
+                        trim_cmd = [
+                            self.ffmpeg_path,
+                            "-i", str(video_path),
+                            "-vf", "select='gte(n\\,15)',setpts=PTS-STARTPTS",
+                            "-af", "atrim=start=0.5,asetpts=PTS-STARTPTS",
+                            "-c:v", "libx264",
+                            "-preset", "fast",
+                            "-crf", "23",
+                            "-c:a", "aac",
+                            "-y",
+                            str(trimmed_path)
+                        ]
+                        
+                        trim_result = await self._run_ffmpeg(trim_cmd)
+                        if trim_result.get("success"):
+                            trimmed_paths.append(str(trimmed_path))
+                        else:
+                            # If trimming fails, use original
+                            trimmed_paths.append(video_path)
+                
+                # Now concatenate the trimmed videos
+                concat_file = settings.temp_dir / f"concat_{os.getpid()}.txt"
+                with open(concat_file, 'w') as f:
+                    for path in trimmed_paths:
+                        f.write(f"file '{path}'\n")
+                
+                concat_cmd = [
+                    self.ffmpeg_path,
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", str(concat_file),
+                    "-c:v", "libx264",
+                    "-preset", q["preset"],
+                    "-crf", str(q["crf"]),
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-movflags", "+faststart",
+                    "-y",
+                    str(output_path)
+                ]
+                
+                result = await self._run_ffmpeg(concat_cmd)
+                
+                # Clean up temp files
+                concat_file.unlink(missing_ok=True)
+                for i, path in enumerate(trimmed_paths):
+                    if i > 0 and path != video_paths[i]:
+                        Path(path).unlink(missing_ok=True)
+            
+            if not result.get("success", False):
+                return result
             
             # Get output info
             output_info = await self.get_video_info(output_path)
@@ -67,7 +183,8 @@ class FFmpegWrapper:
                 "output_path": output_path,
                 "duration": output_info.get("duration", 0),
                 "size": os.path.getsize(output_path),
-                "command": " ".join(cmd)
+                "trimmed_frames": 15 * (len(video_paths) - 1),
+                "command": " ".join(cmd) if isinstance(cmd, list) else cmd
             }
             
         except Exception as e:
@@ -250,13 +367,22 @@ class FFmpegWrapper:
                 {}
             )
             
+            # Calculate fps safely
+            fps = 0
+            if video_stream.get("r_frame_rate"):
+                try:
+                    num, den = video_stream["r_frame_rate"].split("/")
+                    fps = float(num) / float(den) if float(den) != 0 else 0
+                except:
+                    fps = 0
+            
             return {
                 "duration": float(format_info.get("duration", 0)),
                 "size": int(format_info.get("size", 0)),
                 "bit_rate": int(format_info.get("bit_rate", 0)),
                 "width": video_stream.get("width", 0),
                 "height": video_stream.get("height", 0),
-                "fps": eval(video_stream.get("r_frame_rate", "0/1")),
+                "fps": round(fps, 2),
                 "codec": video_stream.get("codec_name", "unknown")
             }
             
