@@ -1,9 +1,63 @@
 """Generate speech tool implementation."""
 
 from typing import Dict, Any, Optional
+import sys
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_speech_cost
+
+
+# Define valid voices at module level for reuse
+VALID_VOICES = {
+    "Wise_Woman": "Wise Woman (Female)",
+    "Friendly_Person": "Friendly Person",
+    "Inspirational_girl": "Inspirational Girl",
+    "Deep_Voice_Man": "Deep Voice Man",
+    "Calm_Woman": "Calm Woman",
+    "Casual_Guy": "Casual Guy",
+    "Lively_Girl": "Lively Girl",
+    "Patient_Man": "Patient Man",
+    "Young_Knight": "Young Knight",
+    "Determined_Man": "Determined Man",
+    "Lovely_Girl": "Lovely Girl",
+    "Decent_Boy": "Decent Boy",
+    "Imposing_Manner": "Imposing Manner",
+    "Elegant_Man": "Elegant Man",
+    "Abbess": "Abbess",
+    "Sweet_Girl_2": "Sweet Girl 2",
+    "Exuberant_Girl": "Exuberant Girl"
+}
+
+# Common voice mistakes/variations mapping
+VOICE_ALIASES = {
+    # Common variations
+    "wise_woman": "Wise_Woman",
+    "wise woman": "Wise_Woman",
+    "female": "Wise_Woman",
+    "woman": "Wise_Woman",
+    "professional": "Wise_Woman",
+    "friendly_person": "Friendly_Person",
+    "friendly person": "Friendly_Person",
+    "friendly": "Friendly_Person",
+    "male": "Deep_Voice_Man",
+    "man": "Deep_Voice_Man",
+    "deep voice": "Deep_Voice_Man",
+    "deep_voice_man": "Deep_Voice_Man",
+    "calm_woman": "Calm_Woman",
+    "calm woman": "Calm_Woman",
+    "calm": "Calm_Woman",
+    "casual_guy": "Casual_Guy",
+    "casual guy": "Casual_Guy",
+    "casual": "Casual_Guy",
+    "inspirational_girl": "Inspirational_girl",
+    "inspirational girl": "Inspirational_girl",
+    "inspirational": "Inspirational_girl",
+    # Common AI confusions
+    "narrator": "Friendly_Person",
+    "voiceover": "Friendly_Person",
+    "default": "Wise_Woman",
+    "neutral": "Friendly_Person"
+}
 
 
 async def generate_speech(
@@ -13,11 +67,67 @@ async def generate_speech(
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Generate speech/voiceover from text."""
+    """Generate speech/voiceover from text.
+    
+    Args:
+        text: The text to convert to speech (max 5000 characters)
+        voice: Voice ID - must be one of: Wise_Woman, Friendly_Person, Deep_Voice_Man, Calm_Woman, etc.
+        speed: Speech speed (0.5-2.0, default 1.0)
+        project_id: Optional project to associate the speech with
+        scene_id: Optional scene within the project
+    """
     try:
         # Convert speed to float if it's passed as string
         if isinstance(speed, str):
             speed = float(speed)
+        
+        # Validate and normalize voice parameter
+        original_voice = voice
+        
+        # First check if it's already a valid voice
+        if voice not in VALID_VOICES:
+            # Try to find it in aliases (case-insensitive)
+            voice_lower = voice.lower()
+            if voice_lower in VOICE_ALIASES:
+                voice = VOICE_ALIASES[voice_lower]
+                print(f"[GenerateSpeech] Mapped voice '{original_voice}' to '{voice}'", file=sys.stderr)
+            else:
+                # Return error with helpful information
+                return {
+                    "success": False,
+                    "error": f"Invalid voice: '{original_voice}'. Please use one of these exact voice IDs:",
+                    "valid_voices": {
+                        "female_voices": {
+                            "Wise_Woman": "Professional, authoritative female",
+                            "Calm_Woman": "Soothing, peaceful female", 
+                            "Inspirational_girl": "Energetic, motivating female",
+                            "Lively_Girl": "Cheerful, animated female",
+                            "Lovely_Girl": "Sweet, gentle female",
+                            "Sweet_Girl_2": "Soft, pleasant female",
+                            "Exuberant_Girl": "Enthusiastic, vibrant female",
+                            "Abbess": "Mature, wise female"
+                        },
+                        "male_voices": {
+                            "Deep_Voice_Man": "Deep, commanding male",
+                            "Casual_Guy": "Relaxed, conversational male",
+                            "Patient_Man": "Understanding, gentle male",
+                            "Young_Knight": "Heroic, youthful male",
+                            "Determined_Man": "Strong, confident male",
+                            "Decent_Boy": "Young, friendly male",
+                            "Imposing_Manner": "Authoritative, powerful male",
+                            "Elegant_Man": "Refined, sophisticated male"
+                        },
+                        "neutral_voices": {
+                            "Friendly_Person": "Warm, approachable narrator"
+                        }
+                    },
+                    "quick_suggestions": [
+                        "For professional narration: use 'Wise_Woman' or 'Deep_Voice_Man'",
+                        "For friendly content: use 'Friendly_Person' or 'Casual_Guy'",
+                        "For motivational content: use 'Inspirational_girl' or 'Determined_Man'"
+                    ],
+                    "correct_usage": "generate_speech(text='Your text', voice='Wise_Woman')"
+                }
         
         # Validate text length
         if len(text) > 5000:
@@ -105,26 +215,8 @@ async def generate_speech(
             if download_result["success"]:
                 asset.local_path = download_result["local_path"]
         
-        # Available voices info
-        voice_options = {
-            "Wise_Woman": "Wise Woman (Female)",
-            "Friendly_Person": "Friendly Person",
-            "Inspirational_girl": "Inspirational Girl",
-            "Deep_Voice_Man": "Deep Voice Man",
-            "Calm_Woman": "Calm Woman",
-            "Casual_Guy": "Casual Guy",
-            "Lively_Girl": "Lively Girl",
-            "Patient_Man": "Patient Man",
-            "Young_Knight": "Young Knight",
-            "Determined_Man": "Determined Man",
-            "Lovely_Girl": "Lovely Girl",
-            "Decent_Boy": "Decent Boy",
-            "Imposing_Manner": "Imposing Manner",
-            "Elegant_Man": "Elegant Man",
-            "Abbess": "Abbess",
-            "Sweet_Girl_2": "Sweet Girl 2",
-            "Exuberant_Girl": "Exuberant Girl"
-        }
+        # Use the module-level voice options
+        voice_options = VALID_VOICES
         
         return {
             "success": True,
@@ -139,6 +231,8 @@ async def generate_speech(
                 "model": "minimax_speech",
                 "voice": voice,
                 "voice_description": voice_options.get(voice, "Custom voice"),
+                "voice_used": voice,
+                "original_voice_request": original_voice if original_voice != voice else None,
                 "speed": speed,
                 "character_count": len(text),
                 "duration_seconds": audio_duration
