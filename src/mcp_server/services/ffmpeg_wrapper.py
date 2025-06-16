@@ -44,6 +44,14 @@ class FFmpegWrapper:
             
             q = quality_settings.get(quality_preset, quality_settings["high"])
             
+            # Check if videos have audio streams
+            has_audio = True
+            for video_path in video_paths:
+                info = await self.get_video_info(video_path)
+                if info.get("error") or not info.get("has_audio", True):
+                    has_audio = False
+                    break
+            
             # For dynamic transitions, we need to use filter_complex
             # Build filter complex string for trimming and concatenation
             filter_parts = []
@@ -52,13 +60,17 @@ class FFmpegWrapper:
             for i, video_path in enumerate(video_paths):
                 if i == 0:
                     # First video - use as is
-                    concat_inputs.extend([f"[{i}:v]", f"[{i}:a]"])
+                    concat_inputs.append(f"[{i}:v]")
+                    if has_audio:
+                        concat_inputs.append(f"[{i}:a]")
                 else:
                     # Subsequent videos - trim first 15 frames (approximately 0.5 seconds at 30fps)
                     # We'll use trim to drop frames and create a more dynamic transition
                     filter_parts.append(f"[{i}:v]trim=start_frame=15,setpts=PTS-STARTPTS[v{i}]")
-                    filter_parts.append(f"[{i}:a]atrim=start=0.5,asetpts=PTS-STARTPTS[a{i}]")
-                    concat_inputs.extend([f"[v{i}]", f"[a{i}]"])
+                    concat_inputs.append(f"[v{i}]")
+                    if has_audio:
+                        filter_parts.append(f"[{i}:a]atrim=start=0.5,asetpts=PTS-STARTPTS[a{i}]")
+                        concat_inputs.append(f"[a{i}]")
             
             # Create the full filter complex
             if len(video_paths) == 1:
@@ -69,13 +81,19 @@ class FFmpegWrapper:
                     "-c:v", "libx264",
                     "-preset", q["preset"],
                     "-crf", str(q["crf"]),
-                    "-pix_fmt", "yuv420p",
-                    "-c:a", "aac",
-                    "-b:a", "192k",
+                    "-pix_fmt", "yuv420p"
+                ]
+                
+                if has_audio:
+                    cmd.extend(["-c:a", "aac", "-b:a", "192k"])
+                else:
+                    cmd.extend(["-an"])  # No audio
+                
+                cmd.extend([
                     "-movflags", "+faststart",
                     "-y",
                     str(output_path)
-                ]
+                ])
             else:
                 # Multiple videos with trimming
                 if filter_parts:
@@ -84,7 +102,10 @@ class FFmpegWrapper:
                     filter_complex = ""
                 
                 # Add concatenation
-                filter_complex += "".join(concat_inputs) + f"concat=n={len(video_paths)}:v=1:a=1[outv][outa]"
+                if has_audio:
+                    filter_complex += "".join(concat_inputs) + f"concat=n={len(video_paths)}:v=1:a=1[outv][outa]"
+                else:
+                    filter_complex += "".join(concat_inputs) + f"concat=n={len(video_paths)}:v=1:a=0[outv]"
                 
                 # Build command with filter_complex
                 cmd = [self.ffmpeg_path]
@@ -96,14 +117,23 @@ class FFmpegWrapper:
                 # Add filter complex
                 cmd.extend([
                     "-filter_complex", filter_complex,
-                    "-map", "[outv]",
-                    "-map", "[outa]",
+                    "-map", "[outv]"
+                ])
+                
+                if has_audio:
+                    cmd.extend([
+                        "-map", "[outa]",
+                        "-c:a", "aac",
+                        "-b:a", "192k"
+                    ])
+                else:
+                    cmd.extend(["-an"])  # No audio
+                
+                cmd.extend([
                     "-c:v", "libx264",
                     "-preset", q["preset"],
                     "-crf", str(q["crf"]),
                     "-pix_fmt", "yuv420p",
-                    "-c:a", "aac",
-                    "-b:a", "192k",
                     "-movflags", "+faststart",
                     "-y",
                     str(output_path)
@@ -126,14 +156,20 @@ class FFmpegWrapper:
                             self.ffmpeg_path,
                             "-i", str(video_path),
                             "-vf", "select='gte(n\\,15)',setpts=PTS-STARTPTS",
-                            "-af", "atrim=start=0.5,asetpts=PTS-STARTPTS",
                             "-c:v", "libx264",
                             "-preset", "fast",
-                            "-crf", "23",
-                            "-c:a", "aac",
-                            "-y",
-                            str(trimmed_path)
+                            "-crf", "23"
                         ]
+                        
+                        if has_audio:
+                            trim_cmd.extend([
+                                "-af", "atrim=start=0.5,asetpts=PTS-STARTPTS",
+                                "-c:a", "aac"
+                            ])
+                        else:
+                            trim_cmd.append("-an")
+                        
+                        trim_cmd.extend(["-y", str(trimmed_path)])
                         
                         trim_result = await self._run_ffmpeg(trim_cmd)
                         if trim_result.get("success"):
@@ -362,9 +398,16 @@ class FFmpegWrapper:
             
             # Extract key information
             format_info = data.get("format", {})
+            streams = data.get("streams", [])
+            
             video_stream = next(
-                (s for s in data.get("streams", []) if s["codec_type"] == "video"),
+                (s for s in streams if s["codec_type"] == "video"),
                 {}
+            )
+            
+            audio_stream = next(
+                (s for s in streams if s["codec_type"] == "audio"),
+                None
             )
             
             # Calculate fps safely
@@ -383,7 +426,9 @@ class FFmpegWrapper:
                 "width": video_stream.get("width", 0),
                 "height": video_stream.get("height", 0),
                 "fps": round(fps, 2),
-                "codec": video_stream.get("codec_name", "unknown")
+                "codec": video_stream.get("codec_name", "unknown"),
+                "has_audio": audio_stream is not None,
+                "audio_codec": audio_stream.get("codec_name", "none") if audio_stream else "none"
             }
             
         except Exception as e:
