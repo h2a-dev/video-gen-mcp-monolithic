@@ -1,7 +1,7 @@
 """Generate speech tool implementation."""
 
 from typing import Dict, Any, Optional
-from ...services import fal_client, asset_storage
+from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_speech_cost
 
@@ -27,7 +27,7 @@ async def generate_speech(
             }
         
         # Generate the speech
-        result = await fal_client.generate_speech(
+        result = await fal_service.generate_speech(
             text=text,
             voice=voice,
             speed=speed

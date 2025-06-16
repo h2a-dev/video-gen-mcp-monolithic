@@ -1,7 +1,7 @@
 """Generate image from text tool implementation."""
 
 from typing import Dict, Any, Optional, List
-from ...services import fal_client, asset_storage
+from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_image_cost
 
@@ -22,7 +22,7 @@ async def generate_image_from_text(
             enhanced_prompt = f"{prompt}, {', '.join(style_modifiers)}"
         
         # Generate the image
-        result = await fal_client.generate_image_from_text(
+        result = await fal_service.generate_image_from_text(
             prompt=enhanced_prompt,
             model=model,
             aspect_ratio=aspect_ratio

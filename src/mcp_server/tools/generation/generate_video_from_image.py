@@ -1,7 +1,7 @@
 """Generate video from image tool implementation."""
 
 from typing import Dict, Any, Optional
-from ...services import fal_client, asset_storage
+from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_video_cost
 
@@ -33,7 +33,7 @@ async def generate_video_from_image(
             }
         
         # Generate the video
-        result = await fal_client.generate_video_from_image(
+        result = await fal_service.generate_video_from_image(
             image_url=image_url,
             motion_prompt=motion_prompt,
             duration=duration,

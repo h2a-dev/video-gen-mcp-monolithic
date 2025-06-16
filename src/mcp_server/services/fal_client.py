@@ -291,4 +291,4 @@ class FALClient:
 
 
 # Singleton instance
-fal_client = FALClient()
+fal_service = FALClient()

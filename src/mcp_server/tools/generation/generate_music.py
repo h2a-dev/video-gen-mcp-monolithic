@@ -1,7 +1,7 @@
 """Generate music tool implementation."""
 
 from typing import Dict, Any, Optional
-from ...services import fal_client, asset_storage
+from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_music_cost
 
@@ -21,7 +21,7 @@ async def generate_music(
         actual_duration = 95
         
         # Generate the music
-        result = await fal_client.generate_music(
+        result = await fal_service.generate_music(
             prompt=prompt,
             duration=actual_duration
         )
