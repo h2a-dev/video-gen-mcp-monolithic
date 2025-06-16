@@ -76,7 +76,8 @@ async def analyze_script(
             "recommendations": {
                 "scene_suggestions": scene_suggestions,
                 "production_tips": _get_production_tips(target_duration, estimated_speaking_seconds),
-                "cost_estimate": _estimate_production_cost(scene_analysis["recommended_scenes"], target_duration)
+                "cost_estimate": _estimate_production_cost(scene_analysis["recommended_scenes"], target_duration),
+                "voice_selection": _get_voice_recommendations(script, themes)
             },
             "next_steps": [
                 f"Create project with: create_project('Title', '{platform or 'custom'}', script=script, target_duration={target_duration})",
@@ -268,4 +269,75 @@ def _estimate_production_cost(num_scenes: int, duration: int) -> Dict[str, float
             0.10, 
             2
         )
+    }
+
+
+def _get_voice_recommendations(script: str, themes: List[str]) -> Dict[str, Any]:
+    """Recommend voices based on script content and themes."""
+    script_lower = script.lower()
+    
+    # Analyze tone
+    professional_words = ['business', 'professional', 'corporate', 'executive', 'management']
+    friendly_words = ['welcome', 'friends', 'community', 'together', 'share']
+    inspirational_words = ['inspire', 'achieve', 'dream', 'success', 'motivation']
+    calming_words = ['peace', 'relax', 'calm', 'meditation', 'gentle']
+    
+    # Count tone indicators
+    tone_scores = {
+        'professional': sum(1 for word in professional_words if word in script_lower),
+        'friendly': sum(1 for word in friendly_words if word in script_lower),
+        'inspirational': sum(1 for word in inspirational_words if word in script_lower),
+        'calming': sum(1 for word in calming_words if word in script_lower)
+    }
+    
+    # Determine primary tone
+    primary_tone = max(tone_scores.items(), key=lambda x: x[1])[0] if any(tone_scores.values()) else 'neutral'
+    
+    # Map tones to voice recommendations
+    voice_recommendations = {
+        'professional': {
+            'primary': 'Wise_Woman',
+            'alternative': 'Deep_Voice_Man',
+            'reason': 'Professional and authoritative tone detected'
+        },
+        'friendly': {
+            'primary': 'Friendly_Person',
+            'alternative': 'Casual_Guy',
+            'reason': 'Warm and approachable content'
+        },
+        'inspirational': {
+            'primary': 'Inspirational_girl',
+            'alternative': 'Determined_Man',
+            'reason': 'Motivational and uplifting message'
+        },
+        'calming': {
+            'primary': 'Calm_Woman',
+            'alternative': 'Patient_Man',
+            'reason': 'Soothing and peaceful content'
+        },
+        'neutral': {
+            'primary': 'Friendly_Person',
+            'alternative': 'Wise_Woman',
+            'reason': 'Versatile voice for general content'
+        }
+    }
+    
+    recommendation = voice_recommendations.get(primary_tone, voice_recommendations['neutral'])
+    
+    return {
+        'recommended_voice': recommendation['primary'],
+        'alternative_voice': recommendation['alternative'],
+        'tone_analysis': primary_tone,
+        'reason': recommendation['reason'],
+        'all_voices': [
+            {'id': 'Wise_Woman', 'description': 'Professional, authoritative female'},
+            {'id': 'Friendly_Person', 'description': 'Warm, approachable'},
+            {'id': 'Deep_Voice_Man', 'description': 'Deep, commanding male'},
+            {'id': 'Calm_Woman', 'description': 'Soothing, peaceful female'},
+            {'id': 'Casual_Guy', 'description': 'Relaxed, conversational male'},
+            {'id': 'Inspirational_girl', 'description': 'Energetic, motivating female'},
+            {'id': 'Patient_Man', 'description': 'Understanding, gentle male'},
+            {'id': 'Determined_Man', 'description': 'Strong, confident male'}
+        ],
+        'usage_example': f'generate_speech(text=script, voice="{recommendation["primary"]}")'  
     }

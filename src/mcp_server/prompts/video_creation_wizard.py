@@ -64,7 +64,13 @@ Based on {recommended_duration} seconds, I recommend:
 For each scene, we'll:
 1. Generate an image that captures the key moment
 2. Animate it with relevant motion
-3. Add voiceover/music as needed
+3. Add voiceover with your chosen voice:
+   - **Wise_Woman**: Professional, authoritative
+   - **Friendly_Person**: Warm, approachable 
+   - **Deep_Voice_Man**: Deep, commanding
+   - **Calm_Woman**: Soothing, peaceful
+   - **Inspirational_girl**: Energetic, motivating
+4. Add background music as needed
 
 ### Step 5: Production Workflow
 Here's our production pipeline:

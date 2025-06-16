@@ -85,6 +85,14 @@ After creating scenes:
 1. Generate images for each scene with `generate_image_from_text()`
 2. Animate them with `generate_video_from_image()`
 3. Add voiceover with `generate_speech()` using your script
+   Choose from these voices:
+   - **Wise_Woman**: Professional, authoritative female voice
+   - **Friendly_Person**: Warm, approachable voice
+   - **Deep_Voice_Man**: Deep, commanding male voice
+   - **Calm_Woman**: Soothing, peaceful female voice
+   - **Casual_Guy**: Relaxed, conversational male voice
+   - **Inspirational_girl**: Energetic, motivating female voice
+   Example: `generate_speech(text=script, voice="Friendly_Person")`
 4. Add background music with `generate_music()`
 5. Assemble with `assemble_video()`
 

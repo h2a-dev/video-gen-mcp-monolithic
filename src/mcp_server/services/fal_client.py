@@ -126,7 +126,7 @@ class FALClient:
             
             return {
                 "success": True,
-                "url": result.get("audio_file", {}).get("url"),
+                "url": result.get("audio", {}).get("url"),
                 "model": "lyria2",
                 "prompt": prompt,
                 "duration": duration,
@@ -142,7 +142,7 @@ class FALClient:
     async def generate_speech(
         self,
         text: str,
-        voice: str = "en-US-1",
+        voice: str = "Wise_Woman",
         speed: float = 1.0,
         **kwargs
     ) -> Dict[str, Any]:
@@ -152,7 +152,7 @@ class FALClient:
             
             return {
                 "success": True,
-                "url": result.get("audio_file", {}).get("url"),
+                "url": result.get("audio", {}).get("url"),
                 "model": "minimax_speech",
                 "text": text,
                 "voice": voice,
@@ -170,7 +170,7 @@ class FALClient:
     async def _run_imagen4(self, prompt: str, aspect_ratio: str, **kwargs) -> Dict[str, Any]:
         """Run Google Imagen 4 model with retry logic."""
         return await self._run_with_retry(
-            model_id="fal-ai/imagen-4",
+            model_id="fal-ai/imagen4/preview",
             arguments={
                 "prompt": prompt,
                 "aspect_ratio": aspect_ratio,
@@ -194,7 +194,7 @@ class FALClient:
     async def _run_flux_kontext(self, image_url: str, prompt: str, guidance_scale: float, **kwargs) -> Dict[str, Any]:
         """Run FLUX Kontext model for image editing with retry logic."""
         return await self._run_with_retry(
-            model_id="fal-ai/flux-pro-kontext",
+            model_id="fal-ai/flux-pro/kontext",
             arguments={
                 "prompt": prompt,
                 "image_url": image_url,
@@ -208,7 +208,7 @@ class FALClient:
     ) -> Dict[str, Any]:
         """Run Kling 2.1 video generation with retry logic."""
         return await self._run_with_retry(
-            model_id="fal-ai/kling-video/v2.1",
+            model_id="fal-ai/kling-video/v2.1/standard/image-to-video",
             arguments={
                 "prompt": prompt,
                 "image_url": image_url,
@@ -231,11 +231,13 @@ class FALClient:
     async def _run_minimax_speech(self, text: str, voice: str, speed: float, **kwargs) -> Dict[str, Any]:
         """Run MiniMax speech generation with retry logic."""
         return await self._run_with_retry(
-            model_id="fal-ai/minimax-speech",
+            model_id="fal-ai/minimax/speech-02-hd",
             arguments={
                 "text": text,
-                "model_type": voice,
-                "speed": speed,
+                "voice_setting": {
+                    "voice_id": voice,
+                    "speed": speed
+                },
                 **kwargs
             }
         )

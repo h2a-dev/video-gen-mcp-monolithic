@@ -8,7 +8,7 @@ from ...config import calculate_speech_cost
 
 async def generate_speech(
     text: str,
-    voice: str = "en-US-1",
+    voice: str = "Wise_Woman",
     speed: float = 1.0,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
@@ -87,16 +87,23 @@ async def generate_speech(
         
         # Available voices info
         voice_options = {
-            "en-US-1": "American English (Male)",
-            "en-US-2": "American English (Female)",
-            "en-GB-1": "British English (Male)",
-            "en-GB-2": "British English (Female)",
-            "es-ES-1": "Spanish (Male)",
-            "es-ES-2": "Spanish (Female)",
-            "fr-FR-1": "French (Male)",
-            "fr-FR-2": "French (Female)",
-            "de-DE-1": "German (Male)",
-            "de-DE-2": "German (Female)"
+            "Wise_Woman": "Wise Woman (Female)",
+            "Friendly_Person": "Friendly Person",
+            "Inspirational_girl": "Inspirational Girl",
+            "Deep_Voice_Man": "Deep Voice Man",
+            "Calm_Woman": "Calm Woman",
+            "Casual_Guy": "Casual Guy",
+            "Lively_Girl": "Lively Girl",
+            "Patient_Man": "Patient Man",
+            "Young_Knight": "Young Knight",
+            "Determined_Man": "Determined Man",
+            "Lovely_Girl": "Lovely Girl",
+            "Decent_Boy": "Decent Boy",
+            "Imposing_Manner": "Imposing Manner",
+            "Elegant_Man": "Elegant Man",
+            "Abbess": "Abbess",
+            "Sweet_Girl_2": "Sweet Girl 2",
+            "Exuberant_Girl": "Exuberant Girl"
         }
         
         return {
