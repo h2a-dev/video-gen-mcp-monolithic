@@ -15,7 +15,10 @@ async def assemble_video(
     quality_preset: str = "high"
 ) -> Dict[str, Any]:
     """Assemble scenes into a complete video using ffmpeg."""
+    import sys
+    
     try:
+        print(f"[AssembleVideo] Starting assembly for project {project_id}", file=sys.stderr)
         project = ProjectManager.get_project(project_id)
         
         # Update project status
@@ -59,13 +62,16 @@ async def assemble_video(
             video_asset = next((a for a in scene.assets if a.type == "video"), None)
             if video_asset and video_asset.local_path:
                 video_paths.append(video_asset.local_path)
+                print(f"[AssembleVideo] Added video: {video_asset.local_path}", file=sys.stderr)
         
         # Use ffmpeg_wrapper to concatenate videos
+        print(f"[AssembleVideo] Concatenating {len(video_paths)} videos...", file=sys.stderr)
         concat_result = await ffmpeg_wrapper.concat_videos(
             video_paths=video_paths,
             output_path=str(output_path),
             quality_preset=quality_preset
         )
+        print(f"[AssembleVideo] Concatenation complete", file=sys.stderr)
         
         if not concat_result["success"]:
             return {
@@ -89,6 +95,7 @@ async def assemble_video(
                         track_type = "music"
                     
                     # Add audio track
+                    print(f"[AssembleVideo] Adding {track_type} audio track {i+1}/{len(project.global_audio_tracks)}", file=sys.stderr)
                     audio_result = await ffmpeg_wrapper.add_audio_track(
                         video_path=current_output,
                         audio_path=audio_track.local_path,
@@ -151,6 +158,7 @@ async def assemble_video(
         if 'project' in locals():
             project.status = ProjectStatus.FAILED
         
+        print(f"[AssembleVideo] Error: {str(e)}", file=sys.stderr)
         return {
             "success": False,
             "error": str(e)

@@ -45,12 +45,13 @@ class FFmpegWrapper:
             q = quality_settings.get(quality_preset, quality_settings["high"])
             
             # Check if videos have audio streams
+            # For efficiency, just check the first video
             has_audio = True
-            for video_path in video_paths:
-                info = await self.get_video_info(video_path)
-                if info.get("error") or not info.get("has_audio", True):
+            if video_paths:
+                first_video_info = await self.get_video_info(video_paths[0])
+                if first_video_info.get("error") or not first_video_info.get("has_audio", True):
                     has_audio = False
-                    break
+                print(f"[FFmpeg] Videos have audio: {has_audio}", file=sys.stderr)
             
             # For dynamic transitions, we need to use filter_complex
             # Build filter complex string for trimming and concatenation
@@ -112,7 +113,8 @@ class FFmpegWrapper:
                 
                 # Add all input files
                 for video_path in video_paths:
-                    cmd.extend(["-i", str(video_path)])
+                    # Ensure path is properly formatted for the OS
+                    cmd.extend(["-i", str(Path(video_path).resolve())])
                 
                 # Add filter complex
                 cmd.extend([
@@ -139,11 +141,12 @@ class FFmpegWrapper:
                     str(output_path)
                 ])
             
-            # Execute command
-            result = await self._run_ffmpeg(cmd)
+            # Execute command with longer timeout for concatenation
+            result = await self._run_ffmpeg(cmd, timeout=300)  # 5 minutes for concat
             
             if not result.get("success", False):
                 # If complex filter fails, try simpler approach
+                print(f"[FFmpeg] Complex filter failed, using simple concatenation", file=sys.stderr)
                 # Create temp files for trimmed videos
                 trimmed_paths = []
                 for i, video_path in enumerate(video_paths):
@@ -271,7 +274,7 @@ class FFmpegWrapper:
                 cmd.insert(-1, filter_str)
             
             # Execute command
-            result = await self._run_ffmpeg(cmd)
+            result = await self._run_ffmpeg(cmd, timeout=60)
             
             return {
                 "success": True,
@@ -349,7 +352,7 @@ class FFmpegWrapper:
             cmd.append(str(output_path))
             
             # Execute command
-            result = await self._run_ffmpeg(cmd)
+            result = await self._run_ffmpeg(cmd, timeout=60)
             
             # Get output info
             output_info = await self.get_video_info(output_path)
@@ -434,20 +437,37 @@ class FFmpegWrapper:
         except Exception as e:
             return {"error": str(e)}
     
-    async def _run_ffmpeg(self, cmd: List[str]) -> Dict[str, Any]:
-        """Run ffmpeg command asynchronously."""
+    async def _run_ffmpeg(self, cmd: List[str], timeout: int = 120) -> Dict[str, Any]:
+        """Run ffmpeg command asynchronously with timeout and progress monitoring."""
+        import sys
+        
         try:
+            # Log the command being executed
+            print(f"[FFmpeg] Executing: {' '.join(cmd[:3])}...", file=sys.stderr)
+            
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             
-            stdout, stderr = await proc.communicate()
+            try:
+                # Wait for process with timeout
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                # Kill the process if it times out
+                proc.kill()
+                await proc.wait()
+                raise RuntimeError(f"FFmpeg timed out after {timeout} seconds")
             
             if proc.returncode != 0:
+                # Only include first 500 chars of stderr to avoid huge error messages
+                error_msg = stderr.decode()[:500]
                 raise RuntimeError(
-                    f"FFmpeg failed with code {proc.returncode}: {stderr.decode()}"
+                    f"FFmpeg failed with code {proc.returncode}: {error_msg}"
                 )
             
             return {
@@ -457,6 +477,7 @@ class FFmpegWrapper:
             }
             
         except Exception as e:
+            print(f"[FFmpeg] Error: {str(e)}", file=sys.stderr)
             raise RuntimeError(f"FFmpeg execution failed: {str(e)}")
     
     def get_aspect_ratio_filter(self, aspect_ratio: str) -> str:
