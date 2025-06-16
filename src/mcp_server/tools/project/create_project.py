@@ -9,7 +9,7 @@ async def create_project(
     title: str,
     platform: str,
     script: Optional[str] = None,
-    target_duration: Optional[str] = None,
+    target_duration: Optional[int] = None,
     aspect_ratio: Optional[str] = None
 ) -> Dict[str, Any]:
     """Initialize a new video project with smart defaults based on platform."""

@@ -66,9 +66,13 @@ def calculate_music_cost(duration_seconds: int) -> float:
     return PRICING["lyria2"]["per_30_seconds"] * chunks
 
 
-def calculate_speech_cost(text: str) -> float:
+def calculate_speech_cost(text_or_chars) -> float:
     """Calculate cost for text-to-speech."""
-    char_count = len(text)
+    # Handle both string and int inputs
+    if isinstance(text_or_chars, str):
+        char_count = len(text_or_chars)
+    else:
+        char_count = text_or_chars
     # MiniMax charges per 1000 characters
     chunks = (char_count + 999) // 1000  # Round up to nearest 1000 chars
     return PRICING["minimax_speech"]["per_1000_chars"] * chunks
