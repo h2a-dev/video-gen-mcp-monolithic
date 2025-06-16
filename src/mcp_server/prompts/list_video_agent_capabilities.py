@@ -3,120 +3,232 @@
 
 async def list_video_agent_capabilities() -> str:
     """List all available MCP server capabilities and provide getting started guide."""
+    
+    # This returns a comprehensive hardcoded list of all server capabilities
+    # In production, this could be generated dynamically from server introspection
+    
     return """# 🎬 Video Agent MCP Server Capabilities
 
 ## 📝 Prompts
 Interactive workflows and creation guides:
 
 • **video_creation_wizard** (platform, topic) - Complete video creation workflow from concept to export
-• **script_to_scenes** (project_id) - Convert script into optimized scene breakdown
+• **script_to_scenes** (project_id) - Convert script into optimized scene breakdown with timing
 • **list_video_agent_capabilities** () - This comprehensive guide you're reading now!
 
 ## 🔧 Tools
 Video creation and manipulation functions:
 
 ### Project Management
-• **create_project** (title, platform, script, target_duration, aspect_ratio) - Initialize new video project
-• **add_scene** (project_id, description, duration, position) - Add scene to timeline
-• **list_projects** () - View all video projects
+• **create_project** (title, platform, script, target_duration, aspect_ratio) - Initialize new video project with platform defaults
+• **add_scene** (project_id, description, duration, position) - Add scene to project timeline
+• **list_projects** () - View all video projects with status and costs
 
 ### Content Generation
-• **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - Text to image
-• **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength) - Image to video
-• **generate_music** (prompt, duration, project_id) - Background music generation
-• **generate_speech** (text, voice, speed, project_id, scene_id) - Text to speech/voiceover
+• **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
+• **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id) - Animate still images with AI
+• **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
+• **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
 ### Video Assembly
-• **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes into video
+• **download_assets** (asset_urls, project_id, asset_type, parallel_downloads) - Download generated assets locally
+• **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes using ffmpeg
+• **add_audio_track** (video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out) - Mix audio without re-encoding video
+• **export_final_video** (project_id, platform, include_captions, include_watermark, output_path) - Platform-optimized export
 
 ### Utility Tools
-• **analyze_script** (script, target_duration, platform) - Get scene suggestions from script
-• **suggest_scenes** (project_id, style) - AI-powered scene recommendations
+• **analyze_script** (script, target_duration, platform) - Analyze script for scene suggestions and timing
+• **suggest_scenes** (project_id, style) - Generate scene ideas based on script and style
 • **get_server_info** () - Server configuration and status
 
 ## 📊 Resources
 Dynamic project and platform information:
 
 ### Project Resources
-• **project://current** - Currently active project details and status
-• **project://{project_id}/timeline** - Scene timeline with durations and order
-• **project://{project_id}/costs** - Detailed cost breakdown by service
+• **project://current** - Currently active project details, progress, and next actions
+• **project://{project_id}/timeline** - Scene timeline with durations, order, and status
+• **project://{project_id}/costs** - Detailed cost breakdown by service with projections
 
 ### Platform Resources
-• **platform://{platform_name}/specs** - Platform requirements and best practices
+• **platform://{platform_name}/specs** - Platform requirements, limits, and best practices
 
 ---
 
-**🚀 Quick Start Guide:**
+## 🚀 Quick Start Guide
 
-1. **Simple Video Creation:**
-   ```
-   Use prompt: video_creation_wizard("tiktok", "cooking tips")
-   ```
+### 1. **Simple Video Creation (Recommended)**
+```
+Use prompt: video_creation_wizard("tiktok", "cooking tips")
+```
+This will guide you through the entire process step-by-step.
 
-2. **Manual Workflow:**
-   - create_project("My Video", "youtube")
-   - analyze_script("Your script here...")
-   - add_scene() for each scene
-   - generate_image_from_text() for visuals
-   - generate_video_from_image() to animate
-   - assemble_video() to combine
+### 2. **Manual Workflow**
+```python
+# Create project
+create_project("My Tutorial", "youtube", target_duration=300)
 
-3. **From Existing Assets:**
-   - create_project() with your platform
-   - Use generate_video_from_image() with your images
-   - Add generate_music() for background
-   - assemble_video() to finish
+# Analyze your script
+analyze_script("Your script here...", target_duration=300, platform="youtube")
 
-**💡 Pro Tips:**
-• Start with prompts for guided workflows
-• Use analyze_script() to plan scenes efficiently
-• Check platform specs before generating content
-• Monitor costs with project resources
-• Download assets early to avoid timeouts
+# Add scenes based on analysis
+add_scene(project_id, "Opening shot of kitchen", duration=10)
+add_scene(project_id, "Ingredients close-up", duration=5)
 
-**💰 Cost Optimization:**
-• 5-second videos cost less than 10-second
-• Image generation: ~$0.04 per image
-• Video generation: ~$0.05 per second
-• Music: ~$0.10 per 30 seconds
-• Speech: ~$0.10 per 1000 characters
+# Generate visuals
+generate_image_from_text("modern kitchen with cooking ingredients", project_id=project_id, scene_id=scene_id)
 
-**🎯 Common Workflows:**
+# Animate the images
+generate_video_from_image(image_url, "slow pan across ingredients", duration=10)
 
-1. **TikTok/Reels (Short Form)**
-   - Target: 15-30 seconds
-   - 3-6 quick scenes
-   - Trending music + captions
-   - Vertical format (9:16)
+# Add audio
+generate_music("upbeat cooking show music", project_id=project_id)
+generate_speech("Welcome to today's cooking tutorial!", project_id=project_id)
 
-2. **YouTube (Long Form)**
-   - Target: 3-10 minutes
-   - Mix of scenes and narration
-   - Background music + voiceover
-   - Horizontal format (16:9)
+# Assemble everything
+assemble_video(project_id)
+add_audio_track(video_path, music_path, track_type="background", volume_adjustment=0.3)
+export_final_video(project_id, platform="youtube")
+```
 
-3. **Product Demo**
-   - Show features visually
-   - Clear voiceover explanation
-   - Professional transitions
-   - Platform-specific formatting
+### 3. **From Existing Assets**
+```python
+# Create project for your platform
+create_project("My Video", "instagram_reel")
 
-**📚 Available Platforms:**
-• youtube - Long-form content
-• youtube_shorts - Vertical short videos
-• tiktok - Trending short content
-• instagram_reel - Visual storytelling
-• instagram_post - Square/vertical posts
-• twitter - Brief impactful content
-• linkedin - Professional content
-• facebook - Versatile formats
-• custom - Any specifications
+# Download your assets
+download_assets([url1, url2, url3], project_id)
 
-**🎨 Available Models:**
-• **Images**: imagen4, flux_pro
-• **Video**: kling_2.1 (5-10 second clips)
-• **Music**: lyria2 (~95 seconds)
-• **Speech**: minimax (multiple voices)
+# Generate videos from your images
+generate_video_from_image(your_image_url, "zoom in with dramatic effect")
 
-Need help? Start with: `video_creation_wizard("your_platform", "your_topic")`"""
+# Add generated audio
+generate_music("trendy upbeat music")
+
+# Assemble and export
+assemble_video(project_id)
+export_final_video(project_id, "instagram_reel")
+```
+
+## 💡 Pro Tips
+
+### Workflow Best Practices
+• Start with `video_creation_wizard()` for guided workflows
+• Use `analyze_script()` to optimize scene count and duration
+• Check platform specs with `platform://specs` before generating
+• Monitor costs in real-time with `project://costs` resource
+
+### Cost Optimization
+• Use 5-second videos instead of 10-second when possible (50% savings)
+• Reuse images across scenes with different animations
+• Skip background music for sub-60 second videos
+• Generate voiceover only for key scenes
+
+### Platform-Specific Tips
+• **TikTok/Reels**: Keep scenes under 5 seconds, use vertical format (9:16)
+• **YouTube**: Mix scene durations, add voiceover for engagement
+• **LinkedIn**: Professional tone, include captions for silent viewing
+
+### Asset Management
+• Download assets immediately after generation to avoid timeouts
+• Use `download_assets()` for batch downloading with parallel support
+• Check storage with `get_server_info()` to monitor disk usage
+
+## 💰 Pricing Reference
+
+### Generation Costs
+• **Images**: $0.04 per image (imagen4, flux_pro)
+• **Video**: $0.05 per second (kling_2.1)
+• **Music**: $0.10 per ~95 second track (lyria2)
+• **Speech**: $0.10 per 1000 characters (minimax)
+
+### Example Project Costs
+• **30s TikTok**: ~$1.50-2.00 (3 images, 30s video, music)
+• **60s Instagram Reel**: ~$3.00-4.00 (6 images, 60s video, music, voiceover)
+• **5min YouTube**: ~$15.00-20.00 (multiple scenes, full production)
+
+## 🎯 Common Workflows
+
+### 1. **Social Media Short (15-30s)**
+```python
+# Quick engaging content
+video_creation_wizard("tiktok", "life hack")
+# → 3-6 scenes, fast cuts, trending music
+```
+
+### 2. **Educational Content (2-5min)**
+```python
+# Structured tutorial
+create_project("Python Tutorial", "youtube", script=tutorial_script)
+analyze_script(tutorial_script, target_duration=180)
+# → Clear sections, voiceover, supporting visuals
+```
+
+### 3. **Product Showcase (30-60s)**
+```python
+# Highlight features
+create_project("Product Demo", "instagram_reel")
+suggest_scenes(project_id, style="cinematic")
+# → Dynamic shots, professional look, call-to-action
+```
+
+### 4. **Story/Narrative (1-3min)**
+```python
+# Emotional journey
+script_to_scenes(project_id)  # After adding script
+# → Scene variety, music sync, voice narration
+```
+
+## 📚 Platform Support
+
+### Supported Platforms
+• **youtube** - Standard videos (up to 12 hours)
+• **youtube_shorts** - Vertical shorts (up to 60s)
+• **tiktok** - Short-form vertical (up to 10min)
+• **instagram_reel** - Vertical stories (up to 90s)
+• **instagram_post** - Feed videos (up to 60s)
+• **twitter** - Quick videos (up to 2:20)
+• **linkedin** - Professional content (up to 10min)
+• **facebook** - Versatile formats (up to 4 hours)
+• **custom** - Any specifications
+
+### Available AI Models
+• **Image Generation**: imagen4 (Google), flux_pro (Black Forest Labs)
+• **Image Editing**: flux_kontext (single image), flux_kontext_multi (multiple images)
+• **Video Generation**: kling_2.1 (single image to video), kling_1.6_elements (multi-image to video)
+• **Music**: lyria2 (DeepMind)
+• **Speech**: minimax (multiple languages and voices)
+
+## 🛠️ Advanced Features
+
+### Script Analysis
+• Word count and speaking time estimation
+• Scene count recommendations
+• Key moment identification
+• Cost projections
+
+### Scene Management
+• Automatic duration optimization
+• Timeline visualization
+• Scene reordering support
+• Transition planning
+
+### Asset Handling
+• Parallel downloads
+• Automatic retries
+• Local storage management
+• Format validation
+
+### Export Options
+• Platform-specific encoding
+• Watermark support
+• Caption preparation
+• Multi-format export
+
+## ❓ Need Help?
+
+1. **Get Started**: `video_creation_wizard("your_platform", "your_topic")`
+2. **Check Status**: Access `project://current` resource
+3. **View Costs**: Access `project://{id}/costs` resource
+4. **Platform Info**: Access `platform://{name}/specs` resource
+
+Remember: This is an MCP server - all interactions happen through Claude!"""
