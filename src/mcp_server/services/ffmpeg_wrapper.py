@@ -36,14 +36,8 @@ class FFmpegWrapper:
     ) -> Dict[str, Any]:
         """Concatenate multiple videos with dynamic transitions by trimming first 15 frames from clips starting from the second one."""
         try:
-            # Quality presets
-            quality_settings = {
-                "low": {"crf": 28, "preset": "faster"},
-                "medium": {"crf": 23, "preset": "medium"},
-                "high": {"crf": 18, "preset": "slow"}
-            }
-            
-            q = quality_settings.get(quality_preset, quality_settings["high"])
+            # Note: quality_preset is ignored when using copy codec
+            # We're just copying the video stream without re-encoding
             
             # Check if videos have audio streams
             # For efficiency, just check the first video
@@ -80,10 +74,7 @@ class FFmpegWrapper:
                 cmd = [
                     self.ffmpeg_path,
                     "-i", video_paths[0],
-                    "-c:v", "libx264",
-                    "-preset", q["preset"],
-                    "-crf", str(q["crf"]),
-                    "-pix_fmt", "yuv420p"
+                    "-c:v", "copy"  # Just copy video stream
                 ]
                 
                 if has_audio:
@@ -133,10 +124,7 @@ class FFmpegWrapper:
                     cmd.extend(["-an"])  # No audio
                 
                 cmd.extend([
-                    "-c:v", "libx264",
-                    "-preset", q["preset"],
-                    "-crf", str(q["crf"]),
-                    "-pix_fmt", "yuv420p",
+                    "-c:v", "copy",  # Just copy video stream
                     "-movflags", "+faststart",
                     "-y",
                     str(output_path)
@@ -160,9 +148,7 @@ class FFmpegWrapper:
                             self.ffmpeg_path,
                             "-i", str(video_path),
                             "-vf", "select='gte(n\\,15)',setpts=PTS-STARTPTS",
-                            "-c:v", "libx264",
-                            "-preset", "fast",
-                            "-crf", "23"
+                            "-c:v", "copy"  # Just copy video stream
                         ]
                         
                         if has_audio:
@@ -193,10 +179,7 @@ class FFmpegWrapper:
                     "-f", "concat",
                     "-safe", "0",
                     "-i", str(concat_file),
-                    "-c:v", "libx264",
-                    "-preset", q["preset"],
-                    "-crf", str(q["crf"]),
-                    "-pix_fmt", "yuv420p",
+                    "-c:v", "copy",  # Just copy video stream
                     "-c:a", "aac",
                     "-b:a", "192k",
                     "-movflags", "+faststart",
@@ -462,20 +445,20 @@ class FFmpegWrapper:
             # Platform-specific settings
             platform_settings = {
                 "youtube": {
-                    "codec": "libx264",
+                    "codec": "copy",
                     "preset": "slow",
                     "crf": "18",
                     "audio_bitrate": "384k"
                 },
                 "tiktok": {
-                    "codec": "libx264",
+                    "codec": "copy",
                     "preset": "medium",
                     "crf": "23",
                     "audio_bitrate": "256k",
                     "max_size": "287M"  # TikTok limit
                 },
                 "instagram_reel": {
-                    "codec": "libx264",
+                    "codec": "copy",
                     "preset": "medium",
                     "crf": "23",
                     "audio_bitrate": "256k",
@@ -489,12 +472,9 @@ class FFmpegWrapper:
             cmd = [
                 self.ffmpeg_path,
                 "-i", str(input_path),
-                "-c:v", settings["codec"],
-                "-preset", settings["preset"],
-                "-crf", settings["crf"],
+                "-c:v", "copy",  # Just copy video stream
                 "-c:a", "aac",
                 "-b:a", settings["audio_bitrate"],
-                "-pix_fmt", "yuv420p",  # Compatibility
                 "-movflags", "+faststart",
                 "-y"
             ]
