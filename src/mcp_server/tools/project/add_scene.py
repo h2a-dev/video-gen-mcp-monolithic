@@ -3,6 +3,13 @@
 from typing import Dict, Any, Optional
 from datetime import datetime
 from ...models import ProjectManager, Scene
+from ...utils import (
+    create_error_response,
+    ErrorType,
+    validate_duration,
+    validate_range,
+    validate_project_exists
+)
 
 
 async def add_scene(
@@ -13,23 +20,37 @@ async def add_scene(
 ) -> Dict[str, Any]:
     """Add a scene to the project timeline."""
     try:
-        # Convert duration to int if it's passed as string
-        if isinstance(duration, str):
-            duration = int(duration)
-        
-        # Convert position to int if it's passed as string
-        if position is not None and isinstance(position, str):
-            position = int(position)
+        # Validate description
+        if not description or not description.strip():
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Scene description cannot be empty",
+                details={"parameter": "description"},
+                suggestion="Provide a clear description of what should happen in this scene",
+                example="add_scene(project_id='...', description='Hero walking through city streets', duration=10)"
+            )
         
         # Validate duration
-        if duration not in [5, 10]:
-            return {
-                "success": False,
-                "error": "Duration must be 5 or 10 seconds for optimal generation"
-            }
+        duration_validation = validate_duration(duration, valid_durations=[5, 10])
+        if not duration_validation["valid"]:
+            return duration_validation["error_response"]
+        duration = duration_validation["value"]
         
-        # Get the project
-        project = ProjectManager.get_project(project_id)
+        # Validate position if provided
+        if position is not None:
+            position_validation = validate_range(
+                position, "position", 0, 100, "Scene position"
+            )
+            if not position_validation["valid"]:
+                return position_validation["error_response"]
+            position = int(position_validation["value"])
+        
+        # Validate project exists
+        project_validation = validate_project_exists(project_id, ProjectManager)
+        if not project_validation["valid"]:
+            return project_validation["error_response"]
+        
+        project = project_validation["project"]
         
         # Create the scene
         scene = Scene(
@@ -37,6 +58,19 @@ async def add_scene(
             duration=duration,
             order=position if position is not None else len(project.scenes)
         )
+        
+        # Check if position is valid before adding
+        if position is not None and position > len(project.scenes):
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                f"Position {position} is invalid (project has {len(project.scenes)} scenes)",
+                details={
+                    "position": position,
+                    "current_scenes": len(project.scenes)
+                },
+                suggestion=f"Use a position between 0 and {len(project.scenes)}",
+                example=f"add_scene(..., position={len(project.scenes)})  # Add at end"
+            )
         
         # Add to project
         added_scene = ProjectManager.add_scene(project_id, scene)
@@ -68,7 +102,21 @@ async def add_scene(
         }
         
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        # Check for specific error patterns
+        error_str = str(e).lower()
+        if "not found" in error_str:
+            return create_error_response(
+                ErrorType.RESOURCE_NOT_FOUND,
+                f"Project not found: {project_id}",
+                details={"project_id": project_id},
+                suggestion="Use list_projects() to see available projects",
+                example="First check projects: list_projects()"
+            )
+        
+        return create_error_response(
+            ErrorType.SYSTEM_ERROR,
+            f"Failed to add scene: {str(e)}",
+            details={"error": str(e)},
+            suggestion="Check your parameters and try again",
+            example="add_scene(project_id='...', description='Scene description', duration=10)"
+        )

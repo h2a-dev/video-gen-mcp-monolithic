@@ -4,6 +4,13 @@ from typing import Dict, Any
 from pathlib import Path
 from ...services import ffmpeg_wrapper
 from ...config import settings
+from ...utils import (
+    create_error_response,
+    ErrorType,
+    validate_enum,
+    validate_range,
+    handle_file_operation_error
+)
 
 
 async def add_audio_track(
@@ -16,37 +23,77 @@ async def add_audio_track(
 ) -> Dict[str, Any]:
     """Add audio track to video without re-encoding video stream."""
     try:
-        # Convert numeric parameters to float if passed as strings
-        if isinstance(volume_adjustment, str):
-            volume_adjustment = float(volume_adjustment)
-        if isinstance(fade_in, str):
-            fade_in = float(fade_in)
-        if isinstance(fade_out, str):
-            fade_out = float(fade_out)
+        # Validate file paths
+        if not video_path or not video_path.strip():
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Video path cannot be empty",
+                details={"parameter": "video_path"},
+                suggestion="Provide the path to the video file",
+                example="add_audio_track(video_path='/path/to/video.mp4', audio_path='/path/to/audio.mp3')"
+            )
         
-        # Validate inputs
+        if not audio_path or not audio_path.strip():
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Audio path cannot be empty",
+                details={"parameter": "audio_path"},
+                suggestion="Provide the path to the audio file",
+                example="add_audio_track(video_path='/path/to/video.mp4', audio_path='/path/to/audio.mp3')"
+            )
+        
+        # Check files exist
         video_file = Path(video_path)
         audio_file = Path(audio_path)
         
         if not video_file.exists():
-            return {
-                "success": False,
-                "error": f"Video file not found: {video_path}"
-            }
+            return handle_file_operation_error(
+                FileNotFoundError(f"Video file not found: {video_path}"),
+                video_path,
+                "reading video file"
+            )
         
         if not audio_file.exists():
-            return {
-                "success": False,
-                "error": f"Audio file not found: {audio_path}"
-            }
+            return handle_file_operation_error(
+                FileNotFoundError(f"Audio file not found: {audio_path}"),
+                audio_path,
+                "reading audio file"
+            )
         
         # Validate track type
         valid_types = ["background", "voiceover", "sfx", "music"]
-        if track_type not in valid_types:
-            return {
-                "success": False,
-                "error": f"Invalid track type. Must be one of: {', '.join(valid_types)}"
+        type_validation = validate_enum(track_type, "track_type", valid_types, "audio track type")
+        if not type_validation["valid"]:
+            type_validation["error_response"]["valid_options"] = {
+                "background": "Background music (auto-lowered to 30% volume)",
+                "voiceover": "Voice narration (full volume)",
+                "sfx": "Sound effects (70% volume)",
+                "music": "Music track (full volume)"
             }
+            return type_validation["error_response"]
+        
+        # Validate numeric parameters
+        volume_validation = validate_range(
+            volume_adjustment, "volume_adjustment", 0.0, 2.0, "Volume adjustment"
+        )
+        if not volume_validation["valid"]:
+            volume_validation["error_response"]["suggestion"] = "Use 0.0 for mute, 1.0 for normal, 2.0 for double volume"
+            return volume_validation["error_response"]
+        volume_adjustment = volume_validation["value"]
+        
+        fade_in_validation = validate_range(
+            fade_in, "fade_in", 0.0, 10.0, "Fade in duration"
+        )
+        if not fade_in_validation["valid"]:
+            return fade_in_validation["error_response"]
+        fade_in = fade_in_validation["value"]
+        
+        fade_out_validation = validate_range(
+            fade_out, "fade_out", 0.0, 10.0, "Fade out duration"
+        )
+        if not fade_out_validation["valid"]:
+            return fade_out_validation["error_response"]
+        fade_out = fade_out_validation["value"]
         
         # Adjust volume based on track type
         if track_type == "background" and volume_adjustment == 1.0:
@@ -101,7 +148,25 @@ async def add_audio_track(
         }
         
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        # Check for specific error patterns
+        error_str = str(e).lower()
+        if "codec" in error_str or "format" in error_str:
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Unsupported audio/video format",
+                details={"error": str(e)},
+                suggestion="Ensure video is MP4 and audio is MP3/AAC/WAV",
+                example="Convert files to supported formats first"
+            )
+        
+        if "permission" in error_str:
+            return handle_file_operation_error(e, str(output_path), "writing output file")
+        
+        # Generic error
+        return create_error_response(
+            ErrorType.SYSTEM_ERROR,
+            f"Failed to add audio track: {str(e)}",
+            details={"error": str(e)},
+            suggestion="Check file paths and formats are correct",
+            example="Ensure both files are accessible and in supported formats"
+        )

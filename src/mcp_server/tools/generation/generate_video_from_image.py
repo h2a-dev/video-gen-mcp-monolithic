@@ -4,6 +4,23 @@ from typing import Dict, Any, Optional
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_video_cost
+from ...utils import (
+    create_error_response,
+    ErrorType,
+    validate_duration,
+    validate_aspect_ratio,
+    validate_range,
+    validate_project_exists,
+    handle_fal_api_error
+)
+
+# Valid aspect ratios for video generation
+VALID_ASPECT_RATIOS = {
+    "16:9": "Widescreen (YouTube, monitors)",
+    "9:16": "Vertical (TikTok, Reels, mobile)",
+    "1:1": "Square (Instagram posts)",
+    "4:5": "Portrait (Instagram posts)"
+}
 
 
 async def generate_video_from_image(
@@ -17,20 +34,44 @@ async def generate_video_from_image(
 ) -> Dict[str, Any]:
     """Convert a single image to video with AI-generated motion."""
     try:
-        # Convert duration to int if it's passed as string
-        if isinstance(duration, str):
-            duration = int(duration)
+        # Validate image URL
+        if not image_url or not image_url.strip():
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Image URL cannot be empty",
+                details={"parameter": "image_url"},
+                suggestion="Provide a valid image URL or generate one first",
+                example="generate_video_from_image(image_url='https://...', motion_prompt='Camera pans left')"
+            )
         
-        # Convert motion_strength to float if it's passed as string
-        if isinstance(motion_strength, str):
-            motion_strength = float(motion_strength)
+        # Validate motion prompt
+        if not motion_prompt or not motion_prompt.strip():
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Motion prompt cannot be empty",
+                details={"parameter": "motion_prompt"},
+                suggestion="Describe the motion you want to apply to the image",
+                example="motion_prompt='Camera slowly zooms in while panning right'"
+            )
         
         # Validate duration
-        if duration not in [5, 10]:
-            return {
-                "success": False,
-                "error": "Duration must be 5 or 10 seconds"
-            }
+        duration_validation = validate_duration(duration, valid_durations=[5, 10])
+        if not duration_validation["valid"]:
+            return duration_validation["error_response"]
+        duration = duration_validation["value"]
+        
+        # Validate aspect ratio
+        ratio_validation = validate_aspect_ratio(aspect_ratio, VALID_ASPECT_RATIOS)
+        if not ratio_validation["valid"]:
+            return ratio_validation["error_response"]
+        
+        # Validate motion strength
+        strength_validation = validate_range(
+            motion_strength, "motion_strength", 0.1, 1.0, "Motion strength"
+        )
+        if not strength_validation["valid"]:
+            return strength_validation["error_response"]
+        motion_strength = strength_validation["value"]
         
         # Generate the video
         result = await fal_service.generate_video_from_image(
@@ -42,6 +83,9 @@ async def generate_video_from_image(
         )
         
         if not result["success"]:
+            # If it's an API error, provide helpful context
+            if "error" in result:
+                return handle_fal_api_error(Exception(result["error"]), "video generation")
             return result
         
         # Calculate cost
@@ -70,11 +114,24 @@ async def generate_video_from_image(
             }
         )
         
-        # If associated with a project/scene, add to it
-        if project_id and scene_id:
-            project = ProjectManager.get_project(project_id)
-            scene = next((s for s in project.scenes if s.id == scene_id), None)
-            if scene:
+        # If associated with a project/scene, validate and add to it
+        if project_id:
+            project_validation = validate_project_exists(project_id, ProjectManager)
+            if not project_validation["valid"]:
+                return project_validation["error_response"]
+            
+            project = project_validation["project"]
+            
+            if scene_id:
+                scene = next((s for s in project.scenes if s.id == scene_id), None)
+                if not scene:
+                    return create_error_response(
+                        ErrorType.RESOURCE_NOT_FOUND,
+                        f"Scene not found in project: {scene_id}",
+                        details={"project_id": project_id, "scene_id": scene_id},
+                        suggestion="Use add_scene() to create a scene first",
+                        example=f"add_scene(project_id='{project_id}', description='Scene description', duration={duration})"
+                    )
                 # Update scene duration if needed
                 if scene.duration != duration:
                     scene.duration = duration
@@ -123,8 +180,26 @@ async def generate_video_from_image(
         }
         
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "model": "kling_2.1"
-        }
+        # Check if it's an API error
+        if "fal" in str(e).lower() or "api" in str(e).lower():
+            return handle_fal_api_error(e, "video generation")
+        
+        # Check for specific error patterns
+        error_str = str(e).lower()
+        if "invalid url" in error_str or "url" in error_str:
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Invalid image URL provided",
+                details={"image_url": image_url, "error": str(e)},
+                suggestion="Ensure the image URL is accessible and points to a valid image file",
+                example="Use a direct image URL like: https://example.com/image.jpg"
+            )
+        
+        # Generic error with helpful context
+        return create_error_response(
+            ErrorType.SYSTEM_ERROR,
+            f"Failed to generate video: {str(e)}",
+            details={"model": "kling_2.1", "error": str(e)},
+            suggestion="Check your image URL and motion prompt, then try again",
+            example="generate_video_from_image(image_url='...', motion_prompt='Simple zoom in', duration=5)"
+        )

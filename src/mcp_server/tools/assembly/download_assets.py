@@ -3,6 +3,13 @@
 from typing import Dict, Any, List, Optional
 from ...services import asset_storage
 from ...models import ProjectManager
+from ...utils import (
+    create_error_response,
+    ErrorType,
+    validate_range,
+    validate_project_exists,
+    handle_file_operation_error
+)
 
 
 async def download_assets(
@@ -13,18 +20,64 @@ async def download_assets(
 ) -> Dict[str, Any]:
     """Download generated assets from FAL or other sources."""
     try:
-        # Convert parallel_downloads to int if it's passed as string
-        if isinstance(parallel_downloads, str):
-            parallel_downloads = int(parallel_downloads)
+        # Validate asset_urls
+        if not asset_urls:
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "No asset URLs provided",
+                details={"parameter": "asset_urls"},
+                suggestion="Provide a list of asset URLs to download",
+                example="download_assets(asset_urls=['https://...', 'https://...'], project_id='...')"
+            )
+        
+        if not isinstance(asset_urls, list):
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                "Asset URLs must be provided as a list",
+                details={"parameter": "asset_urls", "type_provided": type(asset_urls).__name__},
+                suggestion="Wrap your URLs in a list, even for a single URL",
+                example="download_assets(asset_urls=['https://example.com/asset.mp4'], project_id='...')"
+            )
+        
+        # Validate each URL is a string
+        invalid_urls = []
+        for i, url in enumerate(asset_urls):
+            if not isinstance(url, str) or not url.strip():
+                invalid_urls.append(i)
+        
+        if invalid_urls:
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                f"Invalid URLs at positions: {invalid_urls}",
+                details={"invalid_positions": invalid_urls, "total_urls": len(asset_urls)},
+                suggestion="Ensure all URLs are non-empty strings",
+                example="Each URL should be a valid string like 'https://example.com/asset.mp4'"
+            )
         
         # Validate project exists
-        project = ProjectManager.get_project(project_id)
+        project_validation = validate_project_exists(project_id, ProjectManager)
+        if not project_validation["valid"]:
+            return project_validation["error_response"]
         
-        if not asset_urls:
-            return {
-                "success": False,
-                "error": "No asset URLs provided"
-            }
+        # Validate parallel_downloads
+        downloads_validation = validate_range(
+            parallel_downloads, "parallel_downloads", 1, 10, "Parallel downloads"
+        )
+        if not downloads_validation["valid"]:
+            return downloads_validation["error_response"]
+        parallel_downloads = int(downloads_validation["value"])
+        
+        # Validate asset_type if provided
+        valid_asset_types = ["image", "video", "audio", "unknown"]
+        if asset_type and asset_type not in valid_asset_types:
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                f"Invalid asset type: '{asset_type}'",
+                details={"parameter": "asset_type", "provided": asset_type},
+                valid_options={"asset_types": valid_asset_types},
+                suggestion="Use 'image', 'video', 'audio', or leave unspecified",
+                example="asset_type='video'"
+            )
         
         # Prepare assets for download
         assets_to_download = []
@@ -85,7 +138,31 @@ async def download_assets(
         }
         
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        # Check for specific error patterns
+        error_str = str(e).lower()
+        if "not found" in error_str:
+            return create_error_response(
+                ErrorType.RESOURCE_NOT_FOUND,
+                f"Project not found: {project_id}",
+                details={"project_id": project_id},
+                suggestion="Use list_projects() to see available projects",
+                example="First check projects: list_projects()"
+            )
+        
+        if "connection" in error_str or "timeout" in error_str:
+            return create_error_response(
+                ErrorType.API_ERROR,
+                "Network error while downloading assets",
+                details={"error": str(e)},
+                suggestion="Check your internet connection and try again",
+                example="Consider downloading fewer assets at once or increasing timeout"
+            )
+        
+        # Generic error
+        return create_error_response(
+            ErrorType.SYSTEM_ERROR,
+            f"Failed to download assets: {str(e)}",
+            details={"error": str(e)},
+            suggestion="Check the asset URLs are valid and accessible",
+            example="Ensure all URLs point to valid, downloadable files"
+        )
