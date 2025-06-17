@@ -117,6 +117,7 @@ export_final_video(project_id, "instagram_reel")
 
 ### Workflow Best Practices
 • **IMPORTANT**: Generate voiceover FIRST for narrated videos - this ensures perfect audio-visual sync
+• **CRITICAL**: When user provides reference image URL, use `generate_image_from_image`, NOT `generate_image_from_text`
 • Start with `video_creation_wizard()` for guided workflows
 • Use `analyze_script()` to get voice recommendations and optimize timing
 • Account for frame trimming: videos will be ~0.5s shorter per scene transition
@@ -152,6 +153,40 @@ export_final_video(project_id, "instagram_reel")
 • **60s Instagram Reel**: ~$3.00-4.00 (6 images, 60s video, music, voiceover)
 • **5min YouTube**: ~$15.00-20.00 (multiple scenes, full production)
 
+## 🎨 Reference Image Workflows
+
+### When User Provides a Reference Image URL
+If the user provides an image URL as a reference, you should:
+
+1. **Use Image-to-Image Models** to maintain visual consistency:
+```python
+# User provides: "Create variations of this product photo"
+reference_url = "https://example.com/product.jpg"
+
+# Generate variations maintaining the style
+generate_image_from_image(
+    reference_url, 
+    "product on white background with soft shadows",
+    model="flux_kontext"
+)
+
+# For multiple reference images
+generate_image_from_image(
+    [ref_url1, ref_url2], 
+    "combine styles with dramatic lighting",
+    model="flux_kontext_multi"
+)
+```
+
+2. **DO NOT use text-to-image** when reference is provided:
+```python
+# ❌ WRONG: Ignoring the reference
+generate_image_from_text("product photo")  
+
+# ✅ CORRECT: Using the reference
+generate_image_from_image(reference_url, "product from different angle")
+```
+
 ## 🎯 Common Workflows
 
 ### 1. **Social Media Short (15-30s)**
@@ -161,7 +196,22 @@ video_creation_wizard("tiktok", "life hack")
 # → 3-6 scenes, fast cuts, trending music
 ```
 
-### 2. **Educational Content (2-5min)**
+### 2. **Style-Consistent Content (with reference)**
+```python
+# User provides reference image
+reference_image = "https://example.com/brand-style.jpg"
+
+# Create project
+project_id = create_project("Brand Video", "instagram_reel")
+
+# Generate consistent images from reference
+for scene in ["opening shot", "product showcase", "closing shot"]:
+    img_url = generate_image_from_image(reference_image, scene, model="flux_kontext")
+    add_scene(project_id, scene, duration=5)
+    generate_video_from_image(img_url, "smooth camera movement")
+```
+
+### 3. **Educational Content (2-5min)**
 ```python
 # Structured tutorial
 create_project("Python Tutorial", "youtube", script=tutorial_script)
@@ -198,8 +248,13 @@ script_to_scenes(project_id)  # After adding script
 • **custom** - Any specifications
 
 ### Available AI Models
-• **Image Generation**: imagen4 (Google), flux_pro (Black Forest Labs)
-• **Image Editing**: flux_kontext (single image), flux_kontext_multi (multiple images)
+• **Image Generation**: 
+  - imagen4 (Google), flux_pro (Black Forest Labs) - For creating new images from text
+  - **IMPORTANT**: Use generate_image_from_text for new images WITHOUT reference
+• **Image-to-Image (Style Transfer)**: 
+  - flux_kontext - Transform ONE reference image with new prompts
+  - flux_kontext_multi - Transform MULTIPLE reference images together
+  - **IMPORTANT**: Use generate_image_from_image when user provides reference image URL
 • **Video Generation**: kling_2.1 (single image to video), kling_1.6_elements (multi-image to video)
 • **Music**: lyria2 (DeepMind) - ~95 second tracks
 • **Speech**: minimax (multiple voices)
@@ -236,11 +291,11 @@ script_to_scenes(project_id)  # After adding script
 • Audio mixing: Multiple tracks (voiceover + music) properly combined
 • Dynamic transitions: 15 frames trimmed between scenes for smoother flow
 
-### Export Options
-• Platform-specific encoding
-• Watermark support
-• Caption preparation
-• Multi-format export
+### Video Assembly
+• Fast concatenation with copy codec (no re-encoding)
+• Dynamic transitions (0.5s trimmed between scenes)
+• Automatic audio mixing (voiceover + music)
+• Platform-optimized output format
 
 ## ❓ Need Help?
 

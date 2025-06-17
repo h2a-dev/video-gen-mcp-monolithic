@@ -42,8 +42,8 @@ async def assemble_video(
                     "message": "Video was already assembled with audio tracks. No need to call add_audio_track!",
                     "next_steps": [
                         "Video is COMPLETE! Do not add audio tracks.",
-                        "OPTIONAL: Export platform-optimized copy with export_final_video()",
-                        "Download the video from the output path"
+                        "Download the video from the output path",
+                        "Share your creation!"
                     ]
                 }
         
@@ -160,7 +160,7 @@ async def assemble_video(
                 else:
                     print(f"[AssembleVideo] Failed to mix audio tracks: {audio_result.get('error', 'Unknown error')}", file=sys.stderr)
                     # Fall back to sequential adding
-                    await self._add_audio_tracks_sequentially(
+                    await _add_audio_tracks_sequentially(
                         ffmpeg_wrapper, output_path, audio_tracks_info, 
                         output_format, project_id, settings
                     )
@@ -248,12 +248,12 @@ async def assemble_video(
                 "video_files": len(video_paths),
                 "audio_tracks_added": len(project.global_audio_tracks),
                 "dynamic_transitions": True,
-                "frames_trimmed": concat_result.get("trimmed_frames", 0)
+                "seconds_trimmed": concat_result.get("trimmed_seconds", 0)
             },
             "next_steps": [
-                "Video is COMPLETE with all audio mixed! No need to add audio tracks.",
-                "OPTIONAL: Export platform-optimized copy with export_final_video()",
-                "Download the video from the output path"
+                "Video is COMPLETE with all audio mixed!",
+                "Download the video from the output path",
+                "Share your creation!"
             ],
             "status": "Video successfully assembled with ALL audio tracks mixed!",
             "note": "Video includes all voiceover and music tracks. DO NOT call add_audio_track - audio is already mixed!"
@@ -270,10 +270,10 @@ async def assemble_video(
             "error": str(e)
         }
     
-    async def _add_audio_tracks_sequentially(
-        self, ffmpeg_wrapper, output_path, audio_tracks_info, 
-        output_format, project_id, settings
-    ):
+async def _add_audio_tracks_sequentially(
+    ffmpeg_wrapper, output_path, audio_tracks_info, 
+    output_format, project_id, settings
+):
         """Fallback method to add audio tracks one by one."""
         current_output = str(output_path)
         temp_files_to_clean = []

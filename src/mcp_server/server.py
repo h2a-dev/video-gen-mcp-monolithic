@@ -178,31 +178,6 @@ async def add_audio_track(
     return await impl(video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out)
 
 
-@mcp.tool()
-async def export_final_video(
-    project_id: str,
-    platform: str,
-    include_captions: bool = False,
-    include_watermark: bool = False,
-    output_path: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Export video with platform-specific optimizations.
-    
-    Args:
-        project_id: Project to export
-        platform: Target platform for optimization
-        include_captions: Add captions/subtitles
-        include_watermark: Add project watermark
-        output_path: Custom output path
-    
-    Returns:
-        Optimized video path and compliance info
-    """
-    from .tools.assembly import export_final_video as impl
-    return await impl(project_id, platform, include_captions, include_watermark, output_path)
-
-
 # ============================================================================
 # VIDEO GENERATION TOOLS
 # ============================================================================

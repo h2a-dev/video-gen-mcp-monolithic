@@ -36,13 +36,9 @@ class FFmpegWrapper:
         output_path: str,
         quality_preset: str = "high"
     ) -> Dict[str, Any]:
-        """Concatenate multiple videos with dynamic transitions by trimming first 15 frames from clips starting from the second one."""
+        """Concatenate multiple videos with dynamic transitions by trimming first 0.5 seconds from clips starting from the second one."""
         try:
-            # Note: quality_preset is ignored when using copy codec
-            # We're just copying the video stream without re-encoding
-            
             # Check if videos have audio streams
-            # For efficiency, just check the first video
             has_audio = True
             if video_paths:
                 first_video_info = await self.get_video_info(video_paths[0])
@@ -50,152 +46,84 @@ class FFmpegWrapper:
                     has_audio = False
                 print(f"[FFmpeg] Videos have audio: {has_audio}", file=sys.stderr)
             
-            # For dynamic transitions, we need to use filter_complex
-            # Build filter complex string for trimming and concatenation
-            filter_parts = []
-            concat_inputs = []
-            
-            for i, video_path in enumerate(video_paths):
-                if i == 0:
-                    # First video - use as is
-                    concat_inputs.append(f"[{i}:v]")
-                    if has_audio:
-                        concat_inputs.append(f"[{i}:a]")
-                else:
-                    # Subsequent videos - trim first 15 frames (approximately 0.5 seconds at 30fps)
-                    # We'll use trim to drop frames and create a more dynamic transition
-                    filter_parts.append(f"[{i}:v]trim=start_frame=15,setpts=PTS-STARTPTS[v{i}]")
-                    concat_inputs.append(f"[v{i}]")
-                    if has_audio:
-                        filter_parts.append(f"[{i}:a]atrim=start=0.5,asetpts=PTS-STARTPTS[a{i}]")
-                        concat_inputs.append(f"[a{i}]")
-            
-            # Create the full filter complex
             if len(video_paths) == 1:
-                # Single video, no trimming needed
+                # Single video, just copy
                 cmd = [
                     self.ffmpeg_path,
                     "-i", video_paths[0],
-                    "-c:v", "copy"  # Just copy video stream
+                    "-c:v", "copy",
+                    "-c:a", "copy" if has_audio else "-an",
+                    "-movflags", "+faststart",
+                    "-y",
+                    str(output_path)
                 ]
                 
-                if has_audio:
-                    cmd.extend(["-c:a", "aac", "-b:a", "192k"])
-                else:
-                    cmd.extend(["-an"])  # No audio
-                
-                cmd.extend([
-                    "-movflags", "+faststart",
-                    "-y",
-                    str(output_path)
-                ])
+                result = await self._run_ffmpeg(cmd, timeout=300)
             else:
-                # Multiple videos with trimming
-                if filter_parts:
-                    filter_complex = ";".join(filter_parts) + ";"
-                else:
-                    filter_complex = ""
-                
-                # Add concatenation
-                if has_audio:
-                    filter_complex += "".join(concat_inputs) + f"concat=n={len(video_paths)}:v=1:a=1[outv][outa]"
-                else:
-                    filter_complex += "".join(concat_inputs) + f"concat=n={len(video_paths)}:v=1:a=0[outv]"
-                
-                # Build command with filter_complex
-                cmd = [self.ffmpeg_path]
-                
-                # Add all input files
-                for video_path in video_paths:
-                    # Ensure path is properly formatted for the OS
-                    cmd.extend(["-i", str(Path(video_path).resolve())])
-                
-                # Add filter complex
-                cmd.extend([
-                    "-filter_complex", filter_complex,
-                    "-map", "[outv]"
-                ])
-                
-                if has_audio:
-                    cmd.extend([
-                        "-map", "[outa]",
-                        "-c:a", "aac",
-                        "-b:a", "192k"
-                    ])
-                else:
-                    cmd.extend(["-an"])  # No audio
-                
-                cmd.extend([
-                    "-c:v", "copy",  # Just copy video stream
-                    "-movflags", "+faststart",
-                    "-y",
-                    str(output_path)
-                ])
-            
-            # Execute command with longer timeout for concatenation
-            result = await self._run_ffmpeg(cmd, timeout=300)  # 5 minutes for concat
-            
-            if not result.get("success", False):
-                # If complex filter fails, try simpler approach
-                print(f"[FFmpeg] Complex filter failed, using simple concatenation", file=sys.stderr)
-                # Create temp files for trimmed videos
+                # Multiple videos - trim and concatenate
+                # First, create trimmed versions using simple -ss
                 trimmed_paths = []
+                temp_files_created = []
+                
                 for i, video_path in enumerate(video_paths):
                     if i == 0:
+                        # First video - use as is
                         trimmed_paths.append(video_path)
                     else:
-                        # Trim first 15 frames from this video
+                        # Trim first 0.5 seconds using -ss
                         trimmed_path = settings.temp_dir / f"trimmed_{os.getpid()}_{i}.mp4"
+                        temp_files_created.append(trimmed_path)
+                        
                         trim_cmd = [
                             self.ffmpeg_path,
+                            "-ss", "0.5",  # Skip first 0.5 seconds
                             "-i", str(video_path),
-                            "-vf", "select='gte(n\\,15)',setpts=PTS-STARTPTS",
-                            "-c:v", "copy"  # Just copy video stream
+                            "-c:v", "copy",  # Copy codec!
+                            "-c:a", "copy" if has_audio else "-an",
+                            "-avoid_negative_ts", "make_zero",  # Handle timestamp issues
+                            "-y",
+                            str(trimmed_path)
                         ]
-                        
-                        if has_audio:
-                            trim_cmd.extend([
-                                "-af", "atrim=start=0.5,asetpts=PTS-STARTPTS",
-                                "-c:a", "aac"
-                            ])
-                        else:
-                            trim_cmd.append("-an")
-                        
-                        trim_cmd.extend(["-y", str(trimmed_path)])
                         
                         trim_result = await self._run_ffmpeg(trim_cmd)
                         if trim_result.get("success"):
                             trimmed_paths.append(str(trimmed_path))
+                            print(f"[FFmpeg] Successfully trimmed video {i}", file=sys.stderr)
                         else:
                             # If trimming fails, use original
+                            print(f"[FFmpeg] Trim failed for video {i}, using original", file=sys.stderr)
                             trimmed_paths.append(video_path)
                 
-                # Now concatenate the trimmed videos
+                # Now concatenate using the concat demuxer
                 concat_file = settings.temp_dir / f"concat_{os.getpid()}.txt"
+                temp_files_created.append(concat_file)
+                
                 with open(concat_file, 'w') as f:
                     for path in trimmed_paths:
-                        f.write(f"file '{path}'\n")
+                        # Use absolute paths and escape single quotes
+                        escaped_path = str(Path(path).resolve()).replace("'", "'\\''")
+                        f.write(f"file '{escaped_path}'\n")
                 
                 concat_cmd = [
                     self.ffmpeg_path,
                     "-f", "concat",
                     "-safe", "0",
                     "-i", str(concat_file),
-                    "-c:v", "copy",  # Just copy video stream
-                    "-c:a", "aac",
-                    "-b:a", "192k",
+                    "-c", "copy",  # Copy everything!
                     "-movflags", "+faststart",
                     "-y",
                     str(output_path)
                 ]
                 
-                result = await self._run_ffmpeg(concat_cmd)
+                result = await self._run_ffmpeg(concat_cmd, timeout=300)
                 
                 # Clean up temp files
-                concat_file.unlink(missing_ok=True)
-                for i, path in enumerate(trimmed_paths):
-                    if i > 0 and path != video_paths[i]:
-                        Path(path).unlink(missing_ok=True)
+                for temp_file in temp_files_created:
+                    try:
+                        if temp_file.exists():
+                            temp_file.unlink()
+                    except:
+                        pass
             
             if not result.get("success", False):
                 return result
@@ -208,8 +136,8 @@ class FFmpegWrapper:
                 "output_path": output_path,
                 "duration": output_info.get("duration", 0),
                 "size": os.path.getsize(output_path),
-                "trimmed_frames": 15 * (len(video_paths) - 1),
-                "command": " ".join(cmd) if isinstance(cmd, list) else cmd
+                "trimmed_seconds": 0.5 * (len(video_paths) - 1),
+                "command": " ".join(concat_cmd if 'concat_cmd' in locals() else cmd)
             }
             
         except Exception as e:
@@ -473,18 +401,27 @@ class FFmpegWrapper:
             # Build command
             cmd = [
                 self.ffmpeg_path,
-                "-i", str(input_path),
-                "-c:v", "copy",  # Just copy video stream
-                "-c:a", "aac",
-                "-b:a", settings["audio_bitrate"],
-                "-movflags", "+faststart",
-                "-y"
+                "-i", str(input_path)
             ]
             
             # Add watermark if requested
             if include_watermark and watermark_text:
                 filter_text = f"drawtext=text='{watermark_text}':fontcolor=white:fontsize=24:x=10:y=10"
-                cmd.extend(["-vf", filter_text])
+                cmd.extend([
+                    "-vf", filter_text,
+                    "-c:v", "libx264",  # Must re-encode when adding watermark
+                    "-preset", "fast",
+                    "-crf", "23"
+                ])
+            else:
+                cmd.extend(["-c:v", "copy"])  # Copy when no filters
+            
+            cmd.extend([
+                "-c:a", "aac",
+                "-b:a", settings["audio_bitrate"],
+                "-movflags", "+faststart",
+                "-y"
+            ])
             
             # Add size limit if specified
             if "max_size" in settings:
@@ -605,8 +542,8 @@ class FFmpegWrapper:
                 raise RuntimeError(f"FFmpeg timed out after {timeout} seconds")
             
             if proc.returncode != 0:
-                # Only include first 500 chars of stderr to avoid huge error messages
-                error_msg = stderr.decode()[:500]
+                # Include more stderr for debugging (but still limit to prevent overflow)
+                error_msg = stderr.decode()[:2000]
                 raise RuntimeError(
                     f"FFmpeg failed with code {proc.returncode}: {error_msg}"
                 )

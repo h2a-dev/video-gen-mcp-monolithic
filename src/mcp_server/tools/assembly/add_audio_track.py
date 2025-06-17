@@ -156,7 +156,7 @@ async def add_audio_track(
             },
             "next_steps": [
                 "Add more audio tracks if needed",
-                "Export final video with export_final_video()",
+                "Download the video from the output path",
                 "Preview the audio mix"
             ]
         }
