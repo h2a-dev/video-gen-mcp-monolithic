@@ -4,6 +4,8 @@ import os
 import asyncio
 import json
 import sys
+import platform
+import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import subprocess
@@ -516,8 +518,10 @@ class FFmpegWrapper:
     async def get_video_info(self, video_path: str) -> Dict[str, Any]:
         """Get video metadata using ffprobe."""
         try:
+            # Get appropriate ffprobe command for platform
+            ffprobe_cmd = self._get_ffprobe_command()
             cmd = [
-                "ffprobe",
+                ffprobe_cmd,
                 "-v", "quiet",
                 "-print_format", "json",
                 "-show_format",
@@ -626,6 +630,27 @@ class FFmpegWrapper:
             "4:5": "scale=864:1080:force_original_aspect_ratio=decrease,pad=864:1080:(ow-iw)/2:(oh-ih)/2"
         }
         return ratios.get(aspect_ratio, ratios["16:9"])
+    
+    def _get_ffprobe_command(self) -> str:
+        """Get the appropriate ffprobe command for the current platform."""
+        # Check if custom FFPROBE_PATH is set
+        custom_path = os.getenv("FFPROBE_PATH")
+        if custom_path:
+            return custom_path
+        
+        # Determine the executable name based on platform
+        if platform.system() == "Windows":
+            ffprobe_name = "ffprobe.exe"
+        else:
+            ffprobe_name = "ffprobe"
+        
+        # Check if ffprobe is in PATH
+        ffprobe_in_path = shutil.which(ffprobe_name)
+        if ffprobe_in_path:
+            return ffprobe_in_path
+        
+        # Return the default name
+        return ffprobe_name
 
 
 # Singleton instance

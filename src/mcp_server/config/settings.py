@@ -1,6 +1,8 @@
 """Configuration settings for the Video Agent MCP server."""
 
 import os
+import platform
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -41,7 +43,7 @@ class Settings:
         self.default_speech_model = os.getenv("DEFAULT_SPEECH_MODEL", "minimax")
         
         # Video assembly settings
-        self.ffmpeg_path = os.getenv("FFMPEG_PATH", "ffmpeg")
+        self.ffmpeg_path = self._get_ffmpeg_path()
         self.default_video_codec = os.getenv("DEFAULT_VIDEO_CODEC", "libx264")
         self.default_audio_codec = os.getenv("DEFAULT_AUDIO_CODEC", "aac")
         self.default_output_format = os.getenv("DEFAULT_OUTPUT_FORMAT", "mp4")
@@ -67,6 +69,27 @@ class Settings:
         scene_dir = self.get_project_dir(project_id) / "scenes" / scene_id
         scene_dir.mkdir(parents=True, exist_ok=True)
         return scene_dir
+    
+    def _get_ffmpeg_path(self) -> str:
+        """Get the appropriate ffmpeg executable path for the current platform."""
+        # First check if user has set a custom path
+        custom_path = os.getenv("FFMPEG_PATH")
+        if custom_path:
+            return custom_path
+        
+        # Determine the executable name based on platform
+        if platform.system() == "Windows":
+            ffmpeg_name = "ffmpeg.exe"
+        else:
+            ffmpeg_name = "ffmpeg"
+        
+        # Check if ffmpeg is in PATH
+        ffmpeg_in_path = shutil.which(ffmpeg_name)
+        if ffmpeg_in_path:
+            return ffmpeg_in_path
+        
+        # Return the default name and let FFmpegWrapper handle the error
+        return ffmpeg_name
 
 
 # Singleton instance
