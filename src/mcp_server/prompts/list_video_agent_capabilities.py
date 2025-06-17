@@ -14,6 +14,7 @@ Interactive workflows and creation guides:
 
 • **video_creation_wizard** (platform, topic) - Complete video creation workflow from concept to export
 • **script_to_scenes** (project_id) - Convert script into optimized scene breakdown with timing
+• **cinematic_photography_guide** () - Professional camera techniques for cinematic visuals
 • **list_video_agent_capabilities** () - This comprehensive guide you're reading now!
 
 ## 🔧 Tools

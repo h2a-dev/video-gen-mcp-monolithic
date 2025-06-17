@@ -403,6 +403,21 @@ async def list_video_agent_capabilities() -> str:
     return await impl()
 
 
+@mcp.prompt()
+async def cinematic_photography_guide() -> str:
+    """
+    Professional cinematography guide for creating high-quality, cinematic visuals.
+    
+    Provides camera models, lenses, movements, and lighting techniques to enhance
+    AI-generated images and videos with authentic photographic aesthetics.
+    
+    Returns:
+        Comprehensive guide with examples and platform-specific recommendations
+    """
+    from .prompts import cinematic_photography_guide as impl
+    return await impl()
+
+
 # ============================================================================
 # UTILITY TOOLS
 # ============================================================================

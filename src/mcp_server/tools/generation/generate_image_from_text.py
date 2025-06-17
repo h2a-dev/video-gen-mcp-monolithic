@@ -12,6 +12,7 @@ from ...utils import (
     validate_project_exists,
     handle_fal_api_error
 )
+from ...utils.cinematic_prompts import create_cinematic_image_prompt
 
 
 # Valid models and aspect ratios
@@ -88,10 +89,28 @@ async def generate_image_from_text(
                         suggestion="Use add_scene() to create a scene first",
                         example=f"add_scene(project_id='{project_id}', description='Scene description', duration=10)"
                     )
-        # Enhance prompt with style modifiers
-        enhanced_prompt = prompt
-        if style_modifiers:
-            enhanced_prompt = f"{prompt}, {', '.join(style_modifiers)}"
+        # Check if we should apply cinematic enhancement
+        if project_id and scene_id and project:
+            # Get scene position for cinematic enhancement
+            scene_index = next((i for i, s in enumerate(project.scenes) if s.id == scene_id), 0)
+            total_scenes = len(project.scenes)
+            
+            # Apply cinematic enhancement
+            enhanced_prompt = create_cinematic_image_prompt(
+                prompt,
+                scene_number=scene_index + 1,
+                total_scenes=total_scenes,
+                platform=project.platform
+            )
+            
+            # Add style modifiers if provided
+            if style_modifiers:
+                enhanced_prompt = f"{enhanced_prompt}, {', '.join(style_modifiers)}"
+        else:
+            # Standard enhancement for non-project images
+            enhanced_prompt = prompt
+            if style_modifiers:
+                enhanced_prompt = f"{prompt}, {', '.join(style_modifiers)}"
         
         # Generate the image
         result = await fal_service.generate_image_from_text(

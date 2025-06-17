@@ -76,6 +76,7 @@ Based on {recommended_duration} seconds, I recommend:
 
 2. **Plan scenes based on voiceover timing** - ensures perfect sync
 3. **Generate images** that match narration beats
+   - 🎥 **TIP**: Use `cinematic_photography_guide()` for professional visuals!
 4. **Animate images** with motion that complements the audio
 5. **Add background music** at lower volume
 

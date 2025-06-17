@@ -130,6 +130,7 @@ Only use this if you're NOT using voiceover:
 - Use visual metaphors to reinforce what's being said
 - Keep the most impactful content in the middle 60% of your video
 - Test voiceover duration before committing to scene timing
+- **NEW**: Use `cinematic_photography_guide()` for professional camera techniques!
 """
         
     except Exception as e:
