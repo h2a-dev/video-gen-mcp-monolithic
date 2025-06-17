@@ -260,12 +260,14 @@ class FFmpegWrapper:
                     new_audio_filters.append(f"afade=t=out:d={fade_out}")
                 
                 # Create filter complex to mix both audio streams
+                # Use 'sum' mode instead of default 'average' to prevent volume loss
                 filter_parts = []
                 if new_audio_filters:
                     filter_parts.append(f"[1:a]{','.join(new_audio_filters)}[a1]")
-                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=longest[aout]")
+                    # Use dropout_transition=0 to prevent volume changes when one stream ends
+                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=longest:dropout_transition=0:weights='1 1'[aout]")
                 else:
-                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=longest[aout]")
+                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0:weights='1 1'[aout]")
                 
                 filter_complex = ";".join(filter_parts)
                 
@@ -315,14 +317,25 @@ class FFmpegWrapper:
                     cmd.insert(-1, "-af")
                     cmd.insert(-1, filter_str)
             
+            # Log the command for debugging
+            print(f"[FFmpeg] add_audio_track command: {' '.join(cmd)}", file=sys.stderr)
+            
             # Execute command
             result = await self._run_ffmpeg(cmd, timeout=60)
+            
+            if not result.get("success", False):
+                return result
+            
+            # Verify the output has audio
+            output_info = await self.get_video_info(output_path)
+            print(f"[FFmpeg] Output has audio: {output_info.get('has_audio', False)}", file=sys.stderr)
             
             return {
                 "success": True,
                 "output_path": output_path,
                 "size": os.path.getsize(output_path),
-                "audio_filters": audio_filters,
+                "audio_filters": audio_filters if not has_existing_audio else new_audio_filters,
+                "mixed_audio": has_existing_audio,
                 "command": " ".join(cmd)
             }
             
@@ -330,6 +343,104 @@ class FFmpegWrapper:
             return {
                 "success": False,
                 "error": str(e)
+            }
+    
+    async def add_multiple_audio_tracks(
+        self,
+        video_path: str,
+        audio_tracks: List[Dict[str, Any]],
+        output_path: str
+    ) -> Dict[str, Any]:
+        """Add multiple audio tracks to video at once, mixing them together.
+        
+        Args:
+            video_path: Path to input video
+            audio_tracks: List of dicts with keys:
+                - path: Audio file path
+                - volume: Volume level (0.0-2.0)
+                - type: 'voiceover' or 'music'
+            output_path: Path for output video
+        """
+        try:
+            if not audio_tracks:
+                return {
+                    "success": False,
+                    "error": "No audio tracks provided"
+                }
+            
+            # Start building the command
+            cmd = [self.ffmpeg_path, "-i", str(video_path)]
+            
+            # Add all audio inputs
+            for track in audio_tracks:
+                cmd.extend(["-i", str(track["path"])])
+            
+            # Build filter complex for mixing all audio tracks
+            filter_parts = []
+            audio_inputs = []
+            
+            # Apply volume to each audio track
+            for i, track in enumerate(audio_tracks):
+                audio_idx = i + 1  # 0 is the video
+                volume = track.get("volume", 1.0)
+                
+                if volume != 1.0:
+                    filter_parts.append(f"[{audio_idx}:a]volume={volume}[a{i}]")
+                    audio_inputs.append(f"[a{i}]")
+                else:
+                    audio_inputs.append(f"[{audio_idx}:a]")
+            
+            # Mix all audio tracks
+            if len(audio_tracks) == 1:
+                # Single track, no mixing needed
+                if filter_parts:
+                    filter_complex = ";".join(filter_parts)
+                    audio_output = audio_inputs[0]
+                else:
+                    filter_complex = None
+                    audio_output = "1:a"
+            else:
+                # Multiple tracks, mix them
+                if filter_parts:
+                    filter_complex = ";".join(filter_parts) + ";"
+                else:
+                    filter_complex = ""
+                
+                # Use amix with weights to preserve volume
+                weights = " ".join(["1" for _ in audio_tracks])
+                filter_complex += f"{''.join(audio_inputs)}amix=inputs={len(audio_tracks)}:duration=longest:dropout_transition=0:weights='{weights}'[aout]"
+                audio_output = "[aout]"
+            
+            # Complete the command
+            if filter_complex:
+                cmd.extend(["-filter_complex", filter_complex])
+            
+            cmd.extend([
+                "-map", "0:v",          # Video from first input
+                "-map", audio_output,   # Mixed audio
+                "-c:v", "copy",         # Copy video stream
+                "-c:a", "aac",          # Encode audio
+                "-b:a", "192k",
+                "-y",
+                str(output_path)
+            ])
+            
+            print(f"[FFmpeg] Mixing {len(audio_tracks)} audio tracks", file=sys.stderr)
+            for track in audio_tracks:
+                print(f"[FFmpeg]   - {track.get('type', 'unknown')}: volume={track.get('volume', 1.0)}", file=sys.stderr)
+            
+            # Execute command
+            result = await self._run_ffmpeg(cmd, timeout=120)
+            
+            if not result.get("success", False):
+                return result
+            
+            return {
+                "success": True,
+                "output_path": output_path,
+                "size": os.path.getsize(output_path),
+                "tracks_mixed": len(audio_tracks),
+                "command": " ".join(cmd)
             }
     
     async def export_for_platform(
