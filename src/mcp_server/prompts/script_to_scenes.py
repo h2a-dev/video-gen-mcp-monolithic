@@ -53,6 +53,12 @@ This project doesn't have a script yet. To add a script:
         # Parse script into potential scenes
         script_segments = _segment_script(project.script, optimal_scenes)
         
+        # Build warning message outside of f-string
+        warning_msg = ""
+        if estimated_speaking_time > recommended_script_duration:
+            diff = estimated_speaking_time - recommended_script_duration
+            warning_msg = f"⚠️ **WARNING**: Your script is {diff:.1f} seconds too long! Consider trimming to avoid rushed delivery.\n\n"
+        
         return f"""# 🎬 Script-to-Scenes Breakdown
 
 ## 📊 Script Analysis
@@ -63,7 +69,7 @@ This project doesn't have a script yet. To add a script:
 - **Recommended Script Duration**: {recommended_script_duration:.1f} seconds
 - **Platform**: {project.platform}
 
-{"⚠️ **WARNING**: Your script is " + f"{estimated_speaking_time - recommended_script_duration:.1f}" + " seconds too long! Consider trimming to avoid rushed delivery.\\n\\n" if estimated_speaking_time > recommended_script_duration else ""}## 🎯 Scene Planning
+{warning_msg}## 🎯 Scene Planning
 Based on your script and target duration, I recommend **{optimal_scenes} scenes**:
 
 ### Optimal Scene Structure:
