@@ -442,6 +442,12 @@ class FFmpegWrapper:
                 "tracks_mixed": len(audio_tracks),
                 "command": " ".join(cmd)
             }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
     async def export_for_platform(
         self,
