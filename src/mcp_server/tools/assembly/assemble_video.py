@@ -21,6 +21,30 @@ async def assemble_video(
         print(f"[AssembleVideo] Starting assembly for project {project_id}", file=sys.stderr)
         project = ProjectManager.get_project(project_id)
         
+        # Check if video has already been assembled
+        project_dir = settings.get_project_dir(project_id)
+        existing_videos = list(project_dir.glob(f"{project.title.replace(' ', '_')}_{project.platform}.{output_format}"))
+        if existing_videos:
+            # Check if the existing video has audio
+            existing_video = existing_videos[0]
+            video_info = await ffmpeg_wrapper.get_video_info(str(existing_video))
+            if video_info.get('has_audio', False):
+                print(f"[AssembleVideo] Video already assembled with audio: {existing_video.name}", file=sys.stderr)
+                return {
+                    "success": True,
+                    "output": {
+                        "path": str(existing_video),
+                        "format": output_format,
+                        "duration": video_info.get("duration", 0),
+                        "size_mb": round(existing_video.stat().st_size / (1024 * 1024), 2),
+                        "already_assembled": True
+                    },
+                    "message": "Video was already assembled with audio tracks"
+                }
+        
+        # Track files to clean up
+        temp_files_created = []
+        
         # Update project status
         project.status = ProjectStatus.RENDERING
         
@@ -101,7 +125,11 @@ async def assemble_video(
             
             if len(audio_tracks_info) > 1:
                 # Use the new method to mix all tracks at once
-                temp_output = settings.temp_dir / f"{project_id}_with_audio.{output_format}"
+                # Create unique temp filename to avoid conflicts
+                import time
+                timestamp = int(time.time())
+                temp_output = settings.get_project_dir(project_id) / f".temp_audio_mixed_{timestamp}.{output_format}"
+                temp_files_created.append(temp_output)
                 print(f"[AssembleVideo] Mixing {len(audio_tracks_info)} audio tracks in one pass", file=sys.stderr)
                 
                 audio_result = await ffmpeg_wrapper.add_multiple_audio_tracks(
@@ -112,9 +140,18 @@ async def assemble_video(
                 
                 if audio_result["success"]:
                     print(f"[AssembleVideo] Successfully mixed all audio tracks", file=sys.stderr)
-                    # Replace original with audio version
-                    Path(output_path).unlink(missing_ok=True)
-                    Path(temp_output).rename(output_path)
+                    # Replace original with audio version atomically
+                    backup_path = output_path.with_suffix('.backup')
+                    try:
+                        Path(output_path).rename(backup_path)  # Backup original
+                        Path(temp_output).rename(output_path)  # Move new file
+                        backup_path.unlink()  # Delete backup
+                        temp_files_created.remove(temp_output)  # No longer a temp file
+                    except Exception as e:
+                        print(f"[AssembleVideo] Error replacing file: {e}", file=sys.stderr)
+                        # Restore backup if something went wrong
+                        if backup_path.exists():
+                            backup_path.rename(output_path)
                 else:
                     print(f"[AssembleVideo] Failed to mix audio tracks: {audio_result.get('error', 'Unknown error')}", file=sys.stderr)
                     # Fall back to sequential adding
@@ -124,7 +161,10 @@ async def assemble_video(
                     )
             elif len(audio_tracks_info) == 1:
                 # Single track, use simple add
-                temp_output = settings.temp_dir / f"{project_id}_with_audio.{output_format}"
+                import time
+                timestamp = int(time.time())
+                temp_output = settings.get_project_dir(project_id) / f".temp_audio_single_{timestamp}.{output_format}"
+                temp_files_created.append(temp_output)
                 track = audio_tracks_info[0]
                 
                 print(f"[AssembleVideo] Adding single {track['type']} track", file=sys.stderr)
@@ -137,10 +177,38 @@ async def assemble_video(
                 
                 if audio_result["success"]:
                     print(f"[AssembleVideo] Successfully added {track['type']} track", file=sys.stderr)
-                    Path(output_path).unlink(missing_ok=True)
-                    Path(temp_output).rename(output_path)
+                    # Replace original with audio version atomically
+                    backup_path = output_path.with_suffix('.backup')
+                    try:
+                        Path(output_path).rename(backup_path)  # Backup original
+                        Path(temp_output).rename(output_path)  # Move new file
+                        backup_path.unlink()  # Delete backup
+                        temp_files_created.remove(temp_output)  # No longer a temp file
+                    except Exception as e:
+                        print(f"[AssembleVideo] Error replacing file: {e}", file=sys.stderr)
+                        if backup_path.exists():
+                            backup_path.rename(output_path)
                 else:
                     print(f"[AssembleVideo] Failed to add {track['type']} track: {audio_result.get('error', 'Unknown error')}", file=sys.stderr)
+        
+        # Clean up temporary files we created
+        print(f"[AssembleVideo] Cleaning up {len(temp_files_created)} temporary files", file=sys.stderr)
+        for temp_file in temp_files_created:
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+                    print(f"[AssembleVideo] Removed temporary file: {temp_file.name}", file=sys.stderr)
+            except Exception as e:
+                print(f"[AssembleVideo] Failed to remove {temp_file.name}: {e}", file=sys.stderr)
+        
+        # Also clean up any leftover temp files from previous runs
+        project_dir = settings.get_project_dir(project_id)
+        for old_temp in project_dir.glob(".temp_audio_*.mp4"):
+            try:
+                old_temp.unlink()
+                print(f"[AssembleVideo] Removed old temp file: {old_temp.name}", file=sys.stderr)
+            except Exception as e:
+                print(f"[AssembleVideo] Failed to remove old temp {old_temp.name}: {e}", file=sys.stderr)
         
         # Update project status
         project.status = ProjectStatus.COMPLETED
@@ -152,6 +220,10 @@ async def assemble_video(
         # Get actual file info
         video_info = await ffmpeg_wrapper.get_video_info(str(output_path))
         actual_size_mb = round(os.path.getsize(output_path) / (1024 * 1024), 2)
+        
+        # List all video files in project directory for debugging
+        video_files = list(project_dir.glob(f"*.{output_format}"))
+        print(f"[AssembleVideo] Final video files in project: {[f.name for f in video_files]}", file=sys.stderr)
         
         return {
             "success": True,
@@ -199,9 +271,13 @@ async def assemble_video(
     ):
         """Fallback method to add audio tracks one by one."""
         current_output = str(output_path)
+        temp_files_to_clean = []
         
         for i, track in enumerate(audio_tracks_info):
-            temp_output = settings.temp_dir / f"{project_id}_audio_{i}.{output_format}"
+            import time
+            timestamp = int(time.time())
+            temp_output = settings.get_project_dir(project_id) / f".temp_audio_seq_{i}_{timestamp}.{output_format}"
+            temp_files_to_clean.append(temp_output)
             
             print(f"[AssembleVideo] Adding {track['type']} track {i+1}/{len(audio_tracks_info)} (fallback)", file=sys.stderr)
             audio_result = await ffmpeg_wrapper.add_audio_track(
@@ -213,8 +289,13 @@ async def assemble_video(
             
             if audio_result["success"]:
                 print(f"[AssembleVideo] Successfully added {track['type']} track", file=sys.stderr)
-                if current_output != str(output_path):
-                    Path(current_output).unlink(missing_ok=True)
+                # Clean up previous temp file if not the original
+                if current_output != str(output_path) and Path(current_output) in temp_files_to_clean:
+                    try:
+                        Path(current_output).unlink(missing_ok=True)
+                        temp_files_to_clean.remove(Path(current_output))
+                    except:
+                        pass
                 current_output = str(temp_output)
             else:
                 print(f"[AssembleVideo] Failed to add {track['type']} track: {audio_result.get('error', 'Unknown error')}", file=sys.stderr)
@@ -222,5 +303,15 @@ async def assemble_video(
         # Move final output to correct location
         if current_output != str(output_path):
             Path(current_output).rename(output_path)
+            if Path(current_output) in temp_files_to_clean:
+                temp_files_to_clean.remove(Path(current_output))
+        
+        # Clean up any remaining temp files
+        for temp_file in temp_files_to_clean:
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+            except:
+                pass
 
 

@@ -32,9 +32,9 @@ Video creation and manipulation functions:
 
 ### Video Assembly
 • **download_assets** (asset_urls, project_id, asset_type, parallel_downloads) - Download generated assets locally
-• **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes with dynamic transitions (trims 15 frames between scenes)
-• **add_audio_track** (video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out) - Mix multiple audio tracks (voiceover + music)
-• **export_final_video** (project_id, platform, include_captions, include_watermark, output_path) - Platform-optimized export
+• **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes AND mix all audio tracks in one step (call only ONCE)
+• **add_audio_track** (video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out) - Add audio to existing video (rarely needed)
+• **export_final_video** (project_id, platform, include_captions, include_watermark, output_path) - Create platform-optimized copy in exports folder (optional)
 
 ### Utility Tools
 • **analyze_script** (script, target_duration, platform) - Analyze script for scene suggestions and timing
@@ -86,9 +86,11 @@ generate_video_from_image(image_url, "slow pan across ingredients", duration=10)
 # Add background music at low volume
 generate_music("upbeat cooking show music", project_id=project_id)
 
-# Assemble everything (automatically mixes voiceover + music)
-assemble_video(project_id)
-export_final_video(project_id, platform="youtube")
+# Assemble everything ONCE (automatically mixes ALL audio tracks)
+assemble_video(project_id)  # This creates the final video with all audio
+
+# OPTIONAL: Create platform-optimized copy in exports folder
+export_final_video(project_id, platform="youtube")  # Only if you need a separate export
 ```
 
 ### 3. **From Existing Assets**
