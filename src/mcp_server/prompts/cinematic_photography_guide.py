@@ -25,31 +25,31 @@ This guide helps you create professional, cinematic visuals using AI image and v
 
 ### Opening Shot (Establishing)
 ```
-"{description}, shot on ARRI Alexa, 24mm wide angle lens, cinematic widescreen, 
+"{{description}}, shot on ARRI Alexa, 24mm wide angle lens, cinematic widescreen, 
 golden hour lighting, crane shot rising, professional cinematography"
 ```
 
 ### Character/Portrait Scenes
 ```
-"{description}, Canon 85mm f/1.2L, shallow depth of field, creamy bokeh, 
+"{{description}}, Canon 85mm f/1.2L, shallow depth of field, creamy bokeh, 
 shot on Canon 5D Mark IV, natural window lighting, eye-level angle"
 ```
 
 ### Action Sequences
 ```
-"{description}, 70-200mm f/2.8 telephoto, 1/1000s shutter speed, frozen motion,
+"{{description}}, 70-200mm f/2.8 telephoto, 1/1000s shutter speed, frozen motion,
 compressed perspective, handheld documentary style, high contrast"
 ```
 
 ### Emotional/Intimate Moments
 ```
-"{description}, 50mm f/1.2, intimate framing, soft lighting, 
+"{{description}}, 50mm f/1.2, intimate framing, soft lighting, 
 Kodak Portra 400 film aesthetic, subtle handheld movement"
 ```
 
 ### Closing Shot
 ```
-"{description}, anamorphic lens, blue hour lighting, slow dolly out,
+"{{description}}, anamorphic lens, blue hour lighting, slow dolly out,
 cinematic color grading, wide establishing shot, ethereal atmosphere"
 ```
 
@@ -172,5 +172,5 @@ Remember: The AI responds well to specific technical details that create a cohes
 
 ---
 
-{camera_knowledge if camera_knowledge else ""}
+{camera_knowledge}
 """
