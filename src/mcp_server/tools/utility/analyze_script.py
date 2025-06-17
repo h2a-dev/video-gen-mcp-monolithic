@@ -59,6 +59,9 @@ async def analyze_script(
             key_moments
         )
         
+        # Get voice recommendations
+        voice_recommendations = _get_voice_recommendations(script, themes)
+        
         return {
             "success": True,
             "analysis": {
@@ -85,11 +88,11 @@ async def analyze_script(
                 "scene_suggestions": scene_suggestions,
                 "production_tips": _get_production_tips(target_duration, estimated_speaking_seconds),
                 "cost_estimate": _estimate_production_cost(scene_analysis["recommended_scenes"], target_duration),
-                "voice_selection": _get_voice_recommendations(script, themes)
+                "voice_selection": voice_recommendations
             },
             "next_steps": [
                 f"Create project with: create_project('Title', '{platform or 'custom'}', script=script, target_duration={target_duration})",
-                f"Generate voiceover FIRST: generate_speech(text=script, voice='{recommendation['primary']}')",
+                f"Generate voiceover FIRST: generate_speech(text=script, voice='{voice_recommendations['recommended_voice']}')",
                 "Use script_to_scenes() for scene breakdown based on voiceover timing",
                 "Generate visual assets that sync with the narration"
             ]
