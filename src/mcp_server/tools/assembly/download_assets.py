@@ -18,7 +18,17 @@ async def download_assets(
     asset_type: Optional[str] = None,
     parallel_downloads: int = 5
 ) -> Dict[str, Any]:
-    """Download generated assets from FAL or other sources."""
+    """Download generated assets from FAL or other sources.
+    
+    Args:
+        asset_urls: List of URLs to download
+        project_id: Project to associate downloads with
+        asset_type: Optional type ('image', 'video', 'audio') - leave empty for auto-detection
+        parallel_downloads: Number of concurrent downloads (1-10)
+    
+    Note: For mixed asset types (e.g., videos AND audio), leave asset_type as None.
+    The tool will auto-detect types from file extensions.
+    """
     try:
         # Validate asset_urls
         if not asset_urls:
@@ -70,22 +80,49 @@ async def download_assets(
         # Validate asset_type if provided
         valid_asset_types = ["image", "video", "audio", "unknown"]
         if asset_type and asset_type not in valid_asset_types:
-            return create_error_response(
-                ErrorType.VALIDATION_ERROR,
-                f"Invalid asset type: '{asset_type}'",
-                details={"parameter": "asset_type", "provided": asset_type},
-                valid_options={"asset_types": valid_asset_types},
-                suggestion="Use 'image', 'video', 'audio', or leave unspecified",
-                example="asset_type='video'"
-            )
+            # Check if user is trying to download mixed assets
+            if asset_type in ["mixed", "all", "various"]:
+                return create_error_response(
+                    ErrorType.VALIDATION_ERROR,
+                    "Cannot specify 'mixed' asset type. Leave asset_type empty for mixed downloads.",
+                    details={"parameter": "asset_type", "provided": asset_type},
+                    valid_options={
+                        "asset_types": valid_asset_types,
+                        "for_mixed_assets": "Leave asset_type parameter unspecified (None)"
+                    },
+                    suggestion="For mixed asset types, omit the asset_type parameter entirely",
+                    example="download_assets(asset_urls=[...], project_id='...') # No asset_type"
+                )
+            else:
+                return create_error_response(
+                    ErrorType.VALIDATION_ERROR,
+                    f"Invalid asset type: '{asset_type}'",
+                    details={"parameter": "asset_type", "provided": asset_type},
+                    valid_options={"asset_types": valid_asset_types},
+                    suggestion="Use 'image', 'video', 'audio', or leave unspecified for auto-detection",
+                    example="asset_type='video' # or omit for auto-detection"
+                )
         
-        # Prepare assets for download
+        # Prepare assets for download with auto-detection
         assets_to_download = []
         for i, url in enumerate(asset_urls):
+            # Auto-detect type from URL if not specified
+            detected_type = asset_type
+            if not detected_type:
+                url_lower = url.lower()
+                if any(ext in url_lower for ext in ['.mp4', '.mov', '.avi', '.webm']):
+                    detected_type = "video"
+                elif any(ext in url_lower for ext in ['.mp3', '.wav', '.aac', '.m4a']):
+                    detected_type = "audio"
+                elif any(ext in url_lower for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+                    detected_type = "image"
+                else:
+                    detected_type = "unknown"
+            
             asset_info = {
                 "url": url,
                 "id": f"manual_download_{i}",
-                "type": asset_type or "unknown"
+                "type": detected_type
             }
             assets_to_download.append(asset_info)
         
