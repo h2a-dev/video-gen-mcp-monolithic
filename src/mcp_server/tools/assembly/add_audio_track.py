@@ -21,8 +21,22 @@ async def add_audio_track(
     fade_in: float = 0.0,
     fade_out: float = 0.0
 ) -> Dict[str, Any]:
-    """Add audio track to video without re-encoding video stream."""
+    """Add audio track to video without re-encoding video stream.
+    
+    WARNING: If you used assemble_video(), audio tracks are already mixed!
+    This tool is only needed for manual audio addition to videos created outside the normal workflow.
+    """
     try:
+        # Check if this looks like an assembled video
+        video_file = Path(video_path)
+        if "_with_audio" in video_file.name or (video_file.parent.name and "project" in str(video_file.parent)):
+            return create_error_response(
+                ErrorType.STATE_ERROR,
+                "This video was created by assemble_video and already has all audio tracks mixed!",
+                details={"video_path": video_path},
+                suggestion="Do NOT add audio tracks to assembled videos. The audio is already included.",
+                example="If you need different audio, regenerate with assemble_video()"
+            )
         # Validate file paths
         if not video_path or not video_path.strip():
             return create_error_response(

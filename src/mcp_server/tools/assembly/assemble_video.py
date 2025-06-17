@@ -39,7 +39,12 @@ async def assemble_video(
                         "size_mb": round(existing_video.stat().st_size / (1024 * 1024), 2),
                         "already_assembled": True
                     },
-                    "message": "Video was already assembled with audio tracks"
+                    "message": "Video was already assembled with audio tracks. No need to call add_audio_track!",
+                    "next_steps": [
+                        "Video is COMPLETE! Do not add audio tracks.",
+                        "OPTIONAL: Export platform-optimized copy with export_final_video()",
+                        "Download the video from the output path"
+                    ]
                 }
         
         # Track files to clean up
@@ -246,12 +251,12 @@ async def assemble_video(
                 "frames_trimmed": concat_result.get("trimmed_frames", 0)
             },
             "next_steps": [
-                "Export final video with platform optimizations using export_final_video()",
-                "Add additional audio tracks with add_audio_track() if needed",
+                "Video is COMPLETE with all audio mixed! No need to add audio tracks.",
+                "OPTIONAL: Export platform-optimized copy with export_final_video()",
                 "Download the video from the output path"
             ],
-            "status": "Video successfully assembled with dynamic transitions!",
-            "note": "First 15 frames trimmed from each scene (except the first) for smoother, more dynamic transitions"
+            "status": "Video successfully assembled with ALL audio tracks mixed!",
+            "note": "Video includes all voiceover and music tracks. DO NOT call add_audio_track - audio is already mixed!"
         }
         
     except Exception as e:
