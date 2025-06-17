@@ -81,37 +81,51 @@ async def assemble_video(
         
         # Check if we have global audio tracks to add
         if project.global_audio_tracks:
-            # Add global audio tracks one by one
+            print(f"[AssembleVideo] Found {len(project.global_audio_tracks)} audio tracks to add", file=sys.stderr)
+            
+            # Sort audio tracks by type priority: voiceover first, then music/background
+            sorted_tracks = sorted(project.global_audio_tracks, 
+                                 key=lambda t: 0 if t.type == "speech" else 1)
+            
+            # Add audio tracks one by one, mixing with existing audio
             current_output = str(output_path)
-            for i, audio_track in enumerate(project.global_audio_tracks):
+            for i, audio_track in enumerate(sorted_tracks):
                 if audio_track.local_path:
                     temp_output = settings.temp_dir / f"{project_id}_audio_{i}.{output_format}"
                     
-                    # Determine track type based on metadata
+                    # Determine track type and volume
                     track_type = "background"
+                    volume = 0.3  # Default for background music
+                    
                     if audio_track.type == "speech":
                         track_type = "voiceover"
+                        volume = 1.0  # Full volume for voiceover
                     elif audio_track.type == "music":
                         track_type = "music"
+                        volume = 0.3  # Lower volume for background music
                     
-                    # Add audio track
-                    print(f"[AssembleVideo] Adding {track_type} audio track {i+1}/{len(project.global_audio_tracks)}", file=sys.stderr)
+                    # Add audio track (will mix with existing audio if present)
+                    print(f"[AssembleVideo] Adding {track_type} audio track {i+1}/{len(sorted_tracks)} with volume {volume}", file=sys.stderr)
                     audio_result = await ffmpeg_wrapper.add_audio_track(
                         video_path=current_output,
                         audio_path=audio_track.local_path,
                         output_path=str(temp_output),
-                        audio_volume=0.3 if track_type == "background" else 1.0
+                        audio_volume=volume
                     )
                     
                     if audio_result["success"]:
+                        print(f"[AssembleVideo] Successfully added {track_type} track", file=sys.stderr)
                         # If not the final output, remove intermediate file
                         if current_output != str(output_path):
                             Path(current_output).unlink(missing_ok=True)
                         current_output = str(temp_output)
+                    else:
+                        print(f"[AssembleVideo] Failed to add {track_type} track: {audio_result.get('error', 'Unknown error')}", file=sys.stderr)
             
             # Move final output to correct location
             if current_output != str(output_path):
                 Path(current_output).rename(output_path)
+                print(f"[AssembleVideo] Moved final output to {output_path}", file=sys.stderr)
         
         # Update project status
         project.status = ProjectStatus.COMPLETED

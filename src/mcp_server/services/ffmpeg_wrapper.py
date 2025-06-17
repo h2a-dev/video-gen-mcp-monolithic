@@ -242,37 +242,78 @@ class FFmpegWrapper:
         fade_in: float = 0.0,
         fade_out: float = 0.0
     ) -> Dict[str, Any]:
-        """Add audio track to video without re-encoding video stream."""
+        """Add audio track to video, mixing with existing audio if present."""
         try:
-            # Build audio filters
-            audio_filters = []
-            if audio_volume != 1.0:
-                audio_filters.append(f"volume={audio_volume}")
-            if fade_in > 0:
-                audio_filters.append(f"afade=t=in:d={fade_in}")
-            if fade_out > 0:
-                audio_filters.append(f"afade=t=out:d={fade_out}")
+            # Check if video has existing audio
+            video_info = await self.get_video_info(video_path)
+            has_existing_audio = video_info.get("has_audio", False)
             
-            # Build command
-            cmd = [
-                self.ffmpeg_path,
-                "-i", str(video_path),
-                "-i", str(audio_path),
-                "-c:v", "copy",  # Copy video stream
-                "-c:a", "aac",   # Encode audio
-                "-b:a", "192k",
-                "-map", "0:v",   # Video from first input
-                "-map", "1:a",   # Audio from second input
-                "-shortest",     # Stop when shortest stream ends
-                "-y",
-                str(output_path)
-            ]
-            
-            # Add audio filters if any
-            if audio_filters:
-                filter_str = ",".join(audio_filters)
-                cmd.insert(-1, "-af")
-                cmd.insert(-1, filter_str)
+            if has_existing_audio:
+                # Mix audio tracks using amix filter
+                # Build audio filters for new track
+                new_audio_filters = []
+                if audio_volume != 1.0:
+                    new_audio_filters.append(f"volume={audio_volume}")
+                if fade_in > 0:
+                    new_audio_filters.append(f"afade=t=in:d={fade_in}")
+                if fade_out > 0:
+                    new_audio_filters.append(f"afade=t=out:d={fade_out}")
+                
+                # Create filter complex to mix both audio streams
+                filter_parts = []
+                if new_audio_filters:
+                    filter_parts.append(f"[1:a]{','.join(new_audio_filters)}[a1]")
+                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=longest[aout]")
+                else:
+                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=longest[aout]")
+                
+                filter_complex = ";".join(filter_parts)
+                
+                # Build command with audio mixing
+                cmd = [
+                    self.ffmpeg_path,
+                    "-i", str(video_path),
+                    "-i", str(audio_path),
+                    "-filter_complex", filter_complex,
+                    "-map", "0:v",     # Video from first input
+                    "-map", "[aout]",  # Mixed audio output
+                    "-c:v", "copy",    # Copy video stream
+                    "-c:a", "aac",     # Encode audio
+                    "-b:a", "192k",
+                    "-y",
+                    str(output_path)
+                ]
+            else:
+                # No existing audio, just add the new track
+                # Build audio filters
+                audio_filters = []
+                if audio_volume != 1.0:
+                    audio_filters.append(f"volume={audio_volume}")
+                if fade_in > 0:
+                    audio_filters.append(f"afade=t=in:d={fade_in}")
+                if fade_out > 0:
+                    audio_filters.append(f"afade=t=out:d={fade_out}")
+                
+                # Build command
+                cmd = [
+                    self.ffmpeg_path,
+                    "-i", str(video_path),
+                    "-i", str(audio_path),
+                    "-c:v", "copy",  # Copy video stream
+                    "-c:a", "aac",   # Encode audio
+                    "-b:a", "192k",
+                    "-map", "0:v",   # Video from first input
+                    "-map", "1:a",   # Audio from second input
+                    "-shortest",     # Stop when shortest stream ends
+                    "-y",
+                    str(output_path)
+                ]
+                
+                # Add audio filters if any
+                if audio_filters:
+                    filter_str = ",".join(audio_filters)
+                    cmd.insert(-1, "-af")
+                    cmd.insert(-1, filter_str)
             
             # Execute command
             result = await self._run_ffmpeg(cmd, timeout=60)
