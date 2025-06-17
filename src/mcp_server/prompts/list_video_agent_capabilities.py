@@ -32,8 +32,8 @@ Video creation and manipulation functions:
 
 ### Video Assembly
 • **download_assets** (asset_urls, project_id, asset_type, parallel_downloads) - Download generated assets locally
-• **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes using ffmpeg
-• **add_audio_track** (video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out) - Mix audio without re-encoding video
+• **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes with dynamic transitions (trims 15 frames between scenes)
+• **add_audio_track** (video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out) - Mix multiple audio tracks (voiceover + music)
 • **export_final_video** (project_id, platform, include_captions, include_watermark, output_path) - Platform-optimized export
 
 ### Utility Tools
@@ -62,31 +62,32 @@ Use prompt: video_creation_wizard("tiktok", "cooking tips")
 ```
 This will guide you through the entire process step-by-step.
 
-### 2. **Manual Workflow**
+### 2. **Voiceover-First Workflow (RECOMMENDED for narrated videos)**
 ```python
 # Create project
-create_project("My Tutorial", "youtube", target_duration=300)
+create_project("My Tutorial", "youtube", script="Your full script here...", target_duration=300)
 
-# Analyze your script
+# Analyze your script (includes voice recommendations)
 analyze_script("Your script here...", target_duration=300, platform="youtube")
 
-# Add scenes based on analysis
+# Generate voiceover FIRST to establish timing
+generate_speech("Your full script text", voice="Friendly_Person", project_id=project_id)
+
+# Add scenes based on voiceover timing
 add_scene(project_id, "Opening shot of kitchen", duration=10)
 add_scene(project_id, "Ingredients close-up", duration=5)
 
-# Generate visuals
+# Generate visuals that match narration
 generate_image_from_text("modern kitchen with cooking ingredients", project_id=project_id, scene_id=scene_id)
 
-# Animate the images
+# Animate the images to complement speech rhythm
 generate_video_from_image(image_url, "slow pan across ingredients", duration=10)
 
-# Add audio
+# Add background music at low volume
 generate_music("upbeat cooking show music", project_id=project_id)
-generate_speech("Welcome to today's cooking tutorial!", project_id=project_id)
 
-# Assemble everything
+# Assemble everything (automatically mixes voiceover + music)
 assemble_video(project_id)
-add_audio_track(video_path, music_path, track_type="background", volume_adjustment=0.3)
 export_final_video(project_id, platform="youtube")
 ```
 
@@ -112,8 +113,10 @@ export_final_video(project_id, "instagram_reel")
 ## 💡 Pro Tips
 
 ### Workflow Best Practices
+• **IMPORTANT**: Generate voiceover FIRST for narrated videos - this ensures perfect audio-visual sync
 • Start with `video_creation_wizard()` for guided workflows
-• Use `analyze_script()` to optimize scene count and duration
+• Use `analyze_script()` to get voice recommendations and optimize timing
+• Account for frame trimming: videos will be ~0.5s shorter per scene transition
 • Check platform specs with `platform://specs` before generating
 • Monitor costs in real-time with `project://costs` resource
 
@@ -195,15 +198,25 @@ script_to_scenes(project_id)  # After adding script
 • **Image Generation**: imagen4 (Google), flux_pro (Black Forest Labs)
 • **Image Editing**: flux_kontext (single image), flux_kontext_multi (multiple images)
 • **Video Generation**: kling_2.1 (single image to video), kling_1.6_elements (multi-image to video)
-• **Music**: lyria2 (DeepMind)
-• **Speech**: minimax (multiple languages and voices)
+• **Music**: lyria2 (DeepMind) - ~95 second tracks
+• **Speech**: minimax (multiple voices)
+  - Wise_Woman (professional, authoritative)
+  - Friendly_Person (warm, approachable)
+  - Deep_Voice_Man (commanding)
+  - Calm_Woman (soothing)
+  - Casual_Guy (relaxed)
+  - Inspirational_girl (energetic)
+  - Patient_Man (gentle)
+  - Determined_Man (confident)
 
 ## 🛠️ Advanced Features
 
 ### Script Analysis
-• Word count and speaking time estimation
-• Scene count recommendations
-• Key moment identification
+• Word count and speaking time estimation (140 words/minute)
+• Scene count recommendations with frame trimming adjustments
+• Key moment and theme identification
+• Voice selection recommendations based on content
+• Effective duration calculation (accounts for transitions)
 • Cost projections
 
 ### Scene Management
@@ -213,10 +226,12 @@ script_to_scenes(project_id)  # After adding script
 • Transition planning
 
 ### Asset Handling
-• Parallel downloads
-• Automatic retries
+• Parallel downloads (up to 10 concurrent)
+• Automatic retries with FAL API error handling
 • Local storage management
 • Format validation
+• Audio mixing: Multiple tracks (voiceover + music) properly combined
+• Dynamic transitions: 15 frames trimmed between scenes for smoother flow
 
 ### Export Options
 • Platform-specific encoding
