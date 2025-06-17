@@ -178,9 +178,10 @@ class FFmpegWrapper:
                 if new_audio_filters:
                     filter_parts.append(f"[1:a]{','.join(new_audio_filters)}[a1]")
                     # Use dropout_transition=0 to prevent volume changes when one stream ends
-                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=longest:dropout_transition=0:weights='1 1'[aout]")
+                    # Changed duration from 'longest' to 'first' to match video length
+                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=first:dropout_transition=0:weights='1 1'[aout]")
                 else:
-                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0:weights='1 1'[aout]")
+                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0:weights='1 1'[aout]")
                 
                 filter_complex = ";".join(filter_parts)
                 
@@ -320,8 +321,9 @@ class FFmpegWrapper:
                     filter_complex = ""
                 
                 # Use amix with weights to preserve volume
+                # Changed duration from 'longest' to 'first' to match video length
                 weights = " ".join(["1" for _ in audio_tracks])
-                filter_complex += f"{''.join(audio_inputs)}amix=inputs={len(audio_tracks)}:duration=longest:dropout_transition=0:weights='{weights}'[aout]"
+                filter_complex += f"{''.join(audio_inputs)}amix=inputs={len(audio_tracks)}:duration=first:dropout_transition=0:weights='{weights}'[aout]"
                 audio_output = "[aout]"
             
             # Complete the command
@@ -334,6 +336,7 @@ class FFmpegWrapper:
                 "-c:v", "copy",         # Copy video stream
                 "-c:a", "aac",          # Encode audio
                 "-b:a", "192k",
+                "-shortest",            # Stop when shortest stream (video) ends
                 "-y",
                 str(output_path)
             ])
