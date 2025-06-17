@@ -61,24 +61,46 @@ Based on {recommended_duration} seconds, I recommend:
 - **Scene Duration Mix**: {_get_scene_duration_recommendation(recommended_duration)}
 
 ### Step 4: Asset Generation Strategy
-For each scene, we'll:
-1. Generate an image that captures the key moment
-2. Animate it with relevant motion
-3. Add voiceover with your chosen voice:
+
+#### For Videos WITH Voiceover (Recommended Workflow):
+1. **Generate voiceover FIRST** to establish timing:
+   ```
+   generate_speech(text=script, voice="Friendly_Person")
+   ```
+   Available voices:
    - **Wise_Woman**: Professional, authoritative
    - **Friendly_Person**: Warm, approachable 
    - **Deep_Voice_Man**: Deep, commanding
    - **Calm_Woman**: Soothing, peaceful
    - **Inspirational_girl**: Energetic, motivating
-4. Add background music as needed
+
+2. **Plan scenes based on voiceover timing** - ensures perfect sync
+3. **Generate images** that match narration beats
+4. **Animate images** with motion that complements the audio
+5. **Add background music** at lower volume
+
+#### For Videos WITHOUT Voiceover:
+1. Generate images for visual storytelling
+2. Animate with dynamic motion
+3. Add music as the primary audio
 
 ### Step 5: Production Workflow
-Here's our production pipeline:
-1. **Create scenes** with compelling descriptions
-2. **Generate images** using AI models
-3. **Animate images** into video clips
-4. **Add audio** (voiceover and/or background music)
-5. **Assemble** everything into the final video
+
+#### Voiceover-First Workflow (RECOMMENDED for narrated videos):
+1. **Generate voiceover** from your script first
+2. **Analyze voiceover duration** to plan scene timing
+3. **Create scenes** that match voiceover pacing
+4. **Generate images** aligned with narration
+5. **Animate images** to complement speech rhythm
+6. **Add background music** if needed
+7. **Assemble** with perfect audio-visual sync
+
+#### Visual-First Workflow (for non-narrated videos):
+1. **Create scenes** with visual descriptions
+2. **Generate images** for each scene
+3. **Animate images** with dynamic motion
+4. **Generate music** that matches the mood
+5. **Assemble** into final video
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
 {_get_platform_specific_tips(platform)}

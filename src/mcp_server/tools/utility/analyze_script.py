@@ -89,8 +89,9 @@ async def analyze_script(
             },
             "next_steps": [
                 f"Create project with: create_project('Title', '{platform or 'custom'}', script=script, target_duration={target_duration})",
-                "Use script_to_scenes() for detailed scene breakdown",
-                "Generate assets based on scene suggestions"
+                f"Generate voiceover FIRST: generate_speech(text=script, voice='{recommendation['primary']}')",
+                "Use script_to_scenes() for scene breakdown based on voiceover timing",
+                "Generate visual assets that sync with the narration"
             ]
         }
         
@@ -248,6 +249,9 @@ def _get_production_tips(target_duration: int, speaking_duration: float) -> List
     avg_scenes = min(4, max(2, target_duration // 15))
     trimmed_duration = 0.5 * (avg_scenes - 1)
     effective_duration = target_duration - trimmed_duration
+    
+    # ALWAYS recommend voiceover-first workflow for scripts
+    tips.append("🎯 GENERATE VOICEOVER FIRST for perfect audio-visual sync")
     
     # Pacing tips
     if speaking_duration > effective_duration:

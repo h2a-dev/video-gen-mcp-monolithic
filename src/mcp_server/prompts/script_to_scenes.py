@@ -87,11 +87,14 @@ Copy and run these commands to create all scenes:
 {_generate_scene_commands(script_segments, project_id)}
 ```
 
-## 💡 Next Steps
-After creating scenes:
-1. Generate images for each scene with `generate_image_from_text()`
-2. Animate them with `generate_video_from_image()`
-3. Add voiceover with `generate_speech()` using your script
+## 💡 Next Steps - Voiceover-First Workflow (RECOMMENDED)
+
+### 🎯 For Best Audio-Visual Synchronization:
+
+1. **FIRST: Generate voiceover** to establish timing:
+   ```python
+   generate_speech(text=script, voice="Friendly_Person")
+   ```
    Choose from these voices:
    - **Wise_Woman**: Professional, authoritative female voice
    - **Friendly_Person**: Warm, approachable voice
@@ -99,15 +102,34 @@ After creating scenes:
    - **Calm_Woman**: Soothing, peaceful female voice
    - **Casual_Guy**: Relaxed, conversational male voice
    - **Inspirational_girl**: Energetic, motivating female voice
-   Example: `generate_speech(text=script, voice="Friendly_Person")`
-4. Add background music with `generate_music()`
-5. Assemble with `assemble_video()`
 
-## 🎯 Pro Tips
+2. **Listen to the voiceover** and note natural pauses and emphasis points
+
+3. **Create scenes** that align with voiceover timing:
+   ```python
+   # Use the scene commands above, but adjust timing based on voiceover
+   ```
+
+4. **Generate images** that match what's being said at each moment
+
+5. **Animate images** with motion that complements the narration pace
+
+6. **Add background music** at low volume (30%) if desired
+
+7. **Assemble everything** with perfect synchronization
+
+### Alternative Visual-First Workflow:
+Only use this if you're NOT using voiceover:
+1. Create scenes → 2. Generate images → 3. Animate → 4. Add music → 5. Assemble
+
+## 🎯 Pro Tips for Perfect Synchronization
+- **Generate voiceover FIRST** - this is the key to professional results!
 - {_get_pacing_tip(target_duration, optimal_scenes)}
-- Match scene transitions to natural pauses in your script
-- Use visual metaphors to reinforce key points
+- Match scene transitions to natural pauses in your voiceover
+- Plan visual changes at emphasis points in the narration
+- Use visual metaphors to reinforce what's being said
 - Keep the most impactful content in the middle 60% of your video
+- Test voiceover duration before committing to scene timing
 """
         
     except Exception as e:
