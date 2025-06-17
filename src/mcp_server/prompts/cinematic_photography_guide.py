@@ -21,36 +21,50 @@ async def cinematic_photography_guide() -> str:
 
 This guide helps you create professional, cinematic visuals using AI image and video generation tools.
 
+## ⚠️ IMPORTANT: Camera Type Selection
+
+### 📸 FOR STILL IMAGES (generate_image_from_text, generate_image_from_image)
+Use **STILL PHOTOGRAPHY CAMERAS** and lenses:
+- Canon 5D Mark IV, Nikon D850, Sony A7R IV
+- Canon 85mm f/1.2L, Nikon 50mm f/1.4, Zeiss 35mm f/1.4
+- Include photography terms: "shallow DOF", "bokeh", "f-stop"
+
+### 🎬 FOR VIDEO GENERATION (generate_video_from_image)
+Use **CINEMA/VIDEO CAMERAS** and cine lenses:
+- ARRI Alexa, RED Dragon, Blackmagic URSA
+- Zeiss Master Prime 35mm T1.3, Cooke S4/i 50mm T2.0
+- Include motion terms: "dolly", "crane shot", "tracking"
+
 ## 🎬 Quick Cinematic Formulas
 
-### Opening Shot (Establishing)
+### Opening Shot (Establishing) - FOR VIDEO
 ```
-"{{description}}, shot on ARRI Alexa, 24mm wide angle lens, cinematic widescreen, 
+"{{description}}, shot on ARRI Alexa, Zeiss Master Prime 24mm T1.3, cinematic widescreen, 
 golden hour lighting, crane shot rising, professional cinematography"
 ```
 
-### Character/Portrait Scenes
+### Character/Portrait Scenes - FOR STILLS
 ```
 "{{description}}, Canon 85mm f/1.2L, shallow depth of field, creamy bokeh, 
 shot on Canon 5D Mark IV, natural window lighting, eye-level angle"
 ```
 
-### Action Sequences
+### Action Sequences - FOR VIDEO
 ```
-"{{description}}, 70-200mm f/2.8 telephoto, 1/1000s shutter speed, frozen motion,
+"{{description}}, RED Dragon 8K, Angenieux 24-290mm zoom, high frame rate,
 compressed perspective, handheld documentary style, high contrast"
 ```
 
-### Emotional/Intimate Moments
+### Emotional/Intimate Moments - FOR STILLS
 ```
-"{{description}}, 50mm f/1.2, intimate framing, soft lighting, 
-Kodak Portra 400 film aesthetic, subtle handheld movement"
+"{{description}}, Nikon 50mm f/1.2, intimate framing, soft lighting, 
+shot on Nikon D850, Kodak Portra 400 film aesthetic"
 ```
 
-### Closing Shot
+### Closing Shot - FOR VIDEO
 ```
-"{{description}}, anamorphic lens, blue hour lighting, slow dolly out,
-cinematic color grading, wide establishing shot, ethereal atmosphere"
+"{{description}}, ARRI Alexa LF, Panavision anamorphic lens, blue hour lighting, 
+slow dolly out, cinematic color grading, wide establishing shot"
 ```
 
 ## 📸 Scene-Specific Recommendations
@@ -128,32 +142,45 @@ cinematic color grading, wide establishing shot, ethereal atmosphere"
 ### Before:
 "A coffee shop interior"
 
-### After (Cinematic):
-"A cozy coffee shop interior, shot on Canon 5D Mark IV, 35mm f/1.4 lens, 
+### After - FOR STILL IMAGE:
+"A cozy coffee shop interior, shot on Canon 5D Mark IV, Canon 35mm f/1.4L lens, 
 warm window lighting, shallow depth of field, steam rising from coffee cups, 
-cinematic composition, professional photography"
+professional photography, high resolution still"
+
+### After - FOR VIDEO:
+"A cozy coffee shop interior, shot on ARRI Alexa Mini, Zeiss Master Prime 35mm T1.3,
+warm practical lighting, cinematic depth, steam rising dynamically,
+smooth dolly forward revealing the space"
 
 ### Before (Motion):
 "Camera moves forward"
 
-### After (Cinematic Motion):
-"Smooth dolly forward, steadicam glide through the coffee shop, 
-subtle parallax between foreground and background elements, 
-gradual focus pull from cups to barista, cinematic movement"
+### After - VIDEO MOTION PROMPT:
+"Smooth dolly forward on Chapman PeeWee, ARRI Alexa LF with Cooke S4/i 25mm,
+steadicam glide through the coffee shop, subtle parallax movement, 
+gradual focus pull from cups to barista, cinematic camera movement"
 
 ## 🎨 Style Combinations
 
-### Documentary Style
+### Documentary Style - FOR VIDEO
 "Handheld camera, natural lighting, raw authentic feel, Canon C300, 
-24-70mm zoom lens, observational framing"
+Canon CN-E 24-70mm T2.8 cine zoom, observational framing, cinema verite"
 
-### Vintage Film
+### Documentary Style - FOR STILLS
+"Photojournalistic approach, Nikon D6, 24-70mm f/2.8, natural lighting,
+candid moments, decisive moment capture"
+
+### Vintage Film - FOR STILLS
 "Shot on Hasselblad 500CM, Kodak Portra 400, medium format, 
 film grain, slightly desaturated colors, nostalgic mood"
 
-### Modern Commercial
-"Sony A7R IV, crystal clear 8K quality, professional studio lighting,
-product photography aesthetic, clean composition"
+### Modern Commercial - FOR VIDEO
+"RED Komodo 6K, Zeiss CP.3 primes, crystal clear quality, 
+professional lighting, product showcase, smooth camera movements"
+
+### Modern Commercial - FOR STILLS
+"Sony A7R IV, Sony 90mm f/2.8 macro, studio strobes,
+product photography aesthetic, clean composition, tack sharp"
 
 ### Artistic/Experimental
 "Double exposure effect, tilt-shift lens, selective focus,
@@ -162,13 +189,29 @@ light leaks, experimental framing, artistic interpretation"
 ## 🚀 Quick Implementation
 
 To use these enhancements:
-1. Take your base description
-2. Add camera/lens details for authenticity
-3. Include lighting description for mood
-4. Add movement terms for video
-5. Specify composition style
+1. **IDENTIFY YOUR OUTPUT**: Still image or video?
+2. **CHOOSE APPROPRIATE CAMERA**: 
+   - Stills → Photography cameras (Canon 5D, Nikon D850, Sony A7R)
+   - Video → Cinema cameras (ARRI, RED, Blackmagic)
+3. **SELECT MATCHING LENSES**:
+   - Stills → Photo lenses with f-stops (85mm f/1.2)
+   - Video → Cine lenses with T-stops (85mm T1.3)
+4. Add lighting and composition details
+5. For video, include camera movement terms
 
-Remember: The AI responds well to specific technical details that create a cohesive visual style!
+## 📋 Quick Reference
+
+### 📸 STILL IMAGE CAMERAS & LENSES
+- **Cameras**: Canon 5D Mark IV, Nikon D850, Sony A7R IV, Hasselblad X1D
+- **Lenses**: Canon 85mm f/1.2L, Nikon 50mm f/1.4, Zeiss Otus 55mm f/1.4
+- **Terms**: f-stop, bokeh, DOF, shutter speed, ISO
+
+### 🎬 VIDEO/CINEMA CAMERAS & LENSES
+- **Cameras**: ARRI Alexa, RED Dragon, Blackmagic URSA, Sony FX9
+- **Lenses**: Zeiss Master Primes, Cooke S4/i, Angenieux zooms
+- **Terms**: T-stop, dolly, crane, tracking, steadicam
+
+Remember: Using the correct camera type creates more authentic and professional results!
 
 ---
 
