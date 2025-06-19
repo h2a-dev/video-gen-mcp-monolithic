@@ -11,7 +11,8 @@ from ...utils import (
     validate_aspect_ratio,
     validate_range,
     validate_project_exists,
-    handle_fal_api_error
+    handle_fal_api_error,
+    process_image_input
 )
 
 # Valid aspect ratios for video generation
@@ -32,17 +33,29 @@ async def generate_video_from_image(
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Convert a single image to video with AI-generated motion."""
+    """
+    Convert a single image to video with AI-generated motion.
+    
+    Args:
+        image_url: Image input - can be a URL, base64 data URI, or local file path
+        motion_prompt: Description of the motion to apply
+        duration: Video duration in seconds (5 or 10)
+        aspect_ratio: Video aspect ratio
+        motion_strength: Motion intensity (0.1-1.0)
+        project_id: Optional project to associate with
+        scene_id: Optional scene to associate with
+    
+    Returns:
+        Dict with video generation results
+    """
     try:
-        # Validate image URL
-        if not image_url or not image_url.strip():
-            return create_error_response(
-                ErrorType.VALIDATION_ERROR,
-                "Image URL cannot be empty",
-                details={"parameter": "image_url"},
-                suggestion="Provide a valid image URL or generate one first",
-                example="generate_video_from_image(image_url='https://...', motion_prompt='Camera pans left')"
-            )
+        # Validate and process image input (URL, base64, or file path)
+        image_validation = process_image_input(image_url)
+        if not image_validation["valid"]:
+            return image_validation["error_response"]
+        
+        # Use the processed image data (URL or base64 data URI)
+        processed_image_url = image_validation["data"]
         
         # Validate motion prompt
         if not motion_prompt or not motion_prompt.strip():
@@ -75,7 +88,7 @@ async def generate_video_from_image(
         
         # Generate the video
         result = await fal_service.generate_video_from_image(
-            image_url=image_url,
+            image_url=processed_image_url,
             motion_prompt=motion_prompt,
             duration=duration,
             aspect_ratio=aspect_ratio,

@@ -28,6 +28,7 @@ Video creation and manipulation functions:
 ### Content Generation
 • **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
 • **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id) - Animate still images with AI
+  - Accepts: URL, base64 data URI, or local file path for image_url
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
 • **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
@@ -102,8 +103,12 @@ create_project("My Video", "instagram_reel")
 # Download your assets
 download_assets([url1, url2, url3], project_id)
 
-# Generate videos from your images
+# Generate videos from your images (supports URL, base64, or local file)
 generate_video_from_image(your_image_url, "zoom in with dramatic effect")
+# Or from local file:
+generate_video_from_image("/path/to/local/image.png", "pan left slowly")
+# Or from base64:
+generate_video_from_image("data:image/png;base64,iVBORw0...", "zoom out reveal")
 
 # Add generated audio
 generate_music("trendy upbeat music")
