@@ -18,6 +18,7 @@ A comprehensive Model Context Protocol (MCP) server for AI-powered video creatio
 - Python 3.11+
 - FFmpeg installed on your system
 - FAL AI API key
+- uv (recommended for dependency management)
 
 ### Installation
 
@@ -27,12 +28,19 @@ git clone <repository-url>
 cd video-agent-mcp
 ```
 
-2. Install dependencies:
+2. Install uv (if not already installed):
 ```bash
-pip install -r requirements.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-3. Set up environment variables:
+3. Create virtual environment and install dependencies:
+```bash
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -r requirements.txt
+```
+
+4. Set up environment variables:
 ```bash
 export FALAI_API_KEY="your-fal-api-key"
 ```
@@ -40,19 +48,19 @@ export FALAI_API_KEY="your-fal-api-key"
 ### Running the Server
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ### Configuring Claude Desktop
 
-Add the following to your Claude Desktop configuration:
+Add the following to your Claude Desktop configuration (`.mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "video-agent": {
-      "command": "python",
-      "args": ["/path/to/video-agent-mcp/main.py"],
+      "command": "uv",
+      "args": ["--directory", "./video-agent-mcp", "run", "python", "main.py"],
       "env": {
         "FALAI_API_KEY": "your-fal-api-key"
       }
@@ -60,6 +68,8 @@ Add the following to your Claude Desktop configuration:
   }
 }
 ```
+
+Note: The `--directory` flag ensures uv runs in the correct project directory.
 
 ## Usage Example
 
