@@ -87,22 +87,25 @@ creating a project and planning the scenes...
 ## Available Tools
 
 ### Project Management
-- `create_project` - Initialize a new video project
-- `add_scene` - Add scenes to your timeline
-- `list_projects` - View all projects
+- `create_project` - Initialize a new video project with smart defaults based on platform
+- `add_scene` - Add scenes to your timeline with description and duration
+- `list_projects` - View all projects with their current status
 
 ### Content Generation
-- `generate_image_from_text` - Create images from descriptions
-- `generate_video_from_image` - Animate still images
-- `generate_music` - Create background music
-- `generate_speech` - Generate voiceovers
+- `generate_image_from_text` - Create images from text prompts with style modifiers
+- `generate_video_from_image` - Animate still images with AI-generated motion
+- `generate_music` - Create background music from text descriptions
+- `generate_speech` - Generate voiceovers with multiple voice options
 
 ### Video Assembly
-- `assemble_video` - Combine scenes into final video
+- `download_assets` - Download generated assets from FAL or other sources
+- `add_audio_track` - Add audio tracks to video with volume control
+- `assemble_video` - Combine scenes into final video with quality presets
 
 ### Utility
-- `analyze_script` - Get scene suggestions from scripts
-- `suggest_scenes` - Generate scene ideas
+- `analyze_script` - Analyze scripts for video production insights
+- `suggest_scenes` - Generate scene suggestions based on project script
+- `get_server_info` - Get information about the Video Agent server
 
 ## Resources
 
@@ -115,8 +118,10 @@ The server provides dynamic resources for context awareness:
 ## Prompts
 
 Interactive prompts guide complex workflows:
-- `video_creation_wizard` - Complete video creation workflow
-- `script_to_scenes` - Convert scripts to scene plans
+- `video_creation_wizard` - Complete video creation workflow with platform optimization
+- `script_to_scenes` - Convert scripts to scene plans with timing recommendations
+- `list_video_agent_capabilities` - Comprehensive guide of all server capabilities
+- `cinematic_photography_guide` - Professional cinematography techniques for AI visuals
 
 ## Configuration
 
