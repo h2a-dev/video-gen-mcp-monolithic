@@ -132,7 +132,7 @@ async def download_assets(
         asset_urls: List of URLs to download
         project_id: Project to associate assets with
         asset_type: Type of assets (image, video, audio)
-        parallel_downloads: Max concurrent downloads (agents handle downloads)
+        parallel_downloads: Max concurrent downloads (agent handles download tasks)
     
     Returns:
         Download summary and local paths
