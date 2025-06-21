@@ -168,7 +168,6 @@ assemble_video(project_id)
 
 ### Asset Management
 • Download assets immediately after generation to avoid timeouts
-• Use `download_assets()` to delegate download tasks to agent
 • Check storage with `get_server_info()` to monitor disk usage
 
 ## 💰 Pricing Reference
