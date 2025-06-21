@@ -16,6 +16,7 @@ from ...utils import (
     handle_fal_api_error,
     process_image_input
 )
+import fal_client
 
 # Valid aspect ratios for video generation
 VALID_ASPECT_RATIOS = {
@@ -24,228 +25,6 @@ VALID_ASPECT_RATIOS = {
     "1:1": "Square (Instagram posts)",
     "4:5": "Portrait (Instagram posts)"
 }
-
-
-async def process_single_video(request: Dict[str, Any], index: int, retry_count: int = 0) -> Dict[str, Any]:
-    """Process a single video generation request with timeout handling."""
-    start_time = time.time()
-    
-    try:
-        # Extract parameters with defaults
-        image_url = request.get("image_url")
-        motion_prompt = request.get("motion_prompt")
-        duration = request.get("duration", 6)
-        aspect_ratio = request.get("aspect_ratio", "16:9")
-        motion_strength = request.get("motion_strength", 0.7)
-        model = request.get("model", settings.default_video_model)
-        prompt_optimizer = request.get("prompt_optimizer", True)
-        project_id = request.get("project_id")
-        scene_id = request.get("scene_id")
-        
-        # Validate required parameters
-        if not image_url:
-            return {
-                "success": False,
-                "index": index,
-                "error": "image_url is required",
-                "request": request
-            }
-        
-        if not motion_prompt:
-            return {
-                "success": False,
-                "index": index,
-                "error": "motion_prompt is required",
-                "request": request
-            }
-        
-        # Validate and process image input
-        image_validation = await process_image_input(image_url, fal_service)
-        if not image_validation["valid"]:
-            return {
-                "success": False,
-                "index": index,
-                "error": image_validation["error_response"]["message"],
-                "request": request
-            }
-        
-        processed_image_url = image_validation["data"]
-        
-        # Validate model
-        if model not in ["kling_2.1", "hailuo_02"]:
-            return {
-                "success": False,
-                "index": index,
-                "error": f"Invalid model: {model}",
-                "request": request
-            }
-        
-        # Validate duration based on model
-        if model == "kling_2.1":
-            valid_durations = [5, 10]
-        else:  # hailuo_02
-            valid_durations = [6, 10]
-        
-        if duration not in valid_durations:
-            return {
-                "success": False,
-                "index": index,
-                "error": f"Invalid duration {duration} for model {model}. Valid: {valid_durations}",
-                "request": request
-            }
-        
-        # Validate aspect ratio
-        if aspect_ratio not in VALID_ASPECT_RATIOS:
-            return {
-                "success": False,
-                "index": index,
-                "error": f"Invalid aspect ratio: {aspect_ratio}",
-                "request": request
-            }
-        
-        # Validate motion strength for Kling
-        if model == "kling_2.1" and not (0.1 <= motion_strength <= 1.0):
-            return {
-                "success": False,
-                "index": index,
-                "error": f"Motion strength must be between 0.1 and 1.0",
-                "request": request
-            }
-        
-        # Generate the video
-        kwargs = {
-            "image_url": processed_image_url,
-            "motion_prompt": motion_prompt,
-            "duration": duration,
-            "aspect_ratio": aspect_ratio,
-            "model": model
-        }
-        
-        if model == "kling_2.1":
-            kwargs["motion_strength"] = motion_strength
-        else:  # hailuo_02
-            kwargs["prompt_optimizer"] = prompt_optimizer
-        
-        # Log start of video generation
-        print(f"[Batch {index}] Starting video generation for {duration}s video")
-        
-        # Force polling for better queue management without webhooks
-        kwargs['use_polling'] = True
-        
-        # Generate the video
-        print(f"[Batch {index}] Submitting video generation request...")
-        result = await fal_service.generate_video_from_image(**kwargs)
-        
-        if not result["success"]:
-            elapsed = time.time() - start_time
-            error_msg = result.get("error", "Generation failed")
-            print(f"[Batch {index}] Failed after {elapsed:.1f}s: {error_msg}")
-            
-            # Retry once for failures
-            if retry_count < 1 and "timeout" in error_msg.lower():
-                print(f"[Batch {index}] Retrying video generation...")
-                return await process_single_video(request, index, retry_count + 1)
-            
-            return {
-                "success": False,
-                "index": index,
-                "error": error_msg,
-                "request": request,
-                "elapsed_time": elapsed
-            }
-        
-        # Calculate cost
-        cost = calculate_video_cost(model, duration)
-        
-        # Create asset record
-        metadata = {
-            "model": model,
-            "source_image": image_url,
-            "motion_prompt": motion_prompt,
-            "duration": duration,
-            "aspect_ratio": aspect_ratio,
-            "batch_index": index
-        }
-        
-        generation_params = {
-            "image_url": image_url,
-            "motion_prompt": motion_prompt,
-            "duration": duration,
-            "aspect_ratio": aspect_ratio,
-            "model": model
-        }
-        
-        if model == "kling_2.1":
-            metadata["motion_strength"] = motion_strength
-            generation_params["motion_strength"] = motion_strength
-        else:
-            metadata["prompt_optimizer"] = prompt_optimizer
-            generation_params["prompt_optimizer"] = prompt_optimizer
-        
-        asset = Asset(
-            type=AssetType.VIDEO,
-            source=AssetSource.GENERATED,
-            url=result["url"],
-            cost=cost,
-            metadata=metadata,
-            generation_params=generation_params
-        )
-        
-        # Handle project/scene association
-        local_path = None
-        if project_id and scene_id:
-            project_validation = validate_project_exists(project_id, ProjectManager)
-            if project_validation["valid"]:
-                project = project_validation["project"]
-                scene = next((s for s in project.scenes if s.id == scene_id), None)
-                if scene:
-                    scene.assets.append(asset)
-                    project.total_cost = project.calculate_cost()
-                    project.actual_duration = project.calculate_duration()
-                    project.updated_at = asset.created_at
-                    
-                    # Download the asset
-                    download_result = await asset_storage.download_asset(
-                        url=result["url"],
-                        project_id=project_id,
-                        asset_id=asset.id,
-                        asset_type="video"
-                    )
-                    if download_result["success"]:
-                        local_path = download_result["local_path"]
-                        asset.local_path = local_path
-        
-        elapsed = time.time() - start_time
-        print(f"[Batch {index}] Video generation completed in {elapsed:.1f}s")
-        
-        return {
-            "success": True,
-            "index": index,
-            "asset": {
-                "id": asset.id,
-                "url": asset.url,
-                "type": asset.type,
-                "cost": asset.cost,
-                "duration": duration,
-                "local_path": local_path
-            },
-            "generation_details": {
-                "model": model,
-                "motion_prompt": motion_prompt,
-                "duration": duration,
-                "aspect_ratio": aspect_ratio,
-                "source_image": image_url
-            },
-            "elapsed_time": elapsed
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "index": index,
-            "error": str(e),
-            "request": request
-        }
 
 
 async def generate_video_from_image_batch(
@@ -291,58 +70,261 @@ async def generate_video_from_image_batch(
         
         print(f"\n=== Starting batch video generation for {len(requests)} videos ===")
         
-        # Process videos in smaller groups to avoid overwhelming the API
-        batch_size = 5  # Process 5 videos at a time
-        all_results = []
+        # Step 1: Submit all jobs to FAL queue
+        print("\nStep 1: Submitting all jobs to FAL queue...")
+        submissions = []
         
-        for i in range(0, len(requests), batch_size):
-            batch_end = min(i + batch_size, len(requests))
-            batch = requests[i:batch_end]
-            
-            print(f"\nProcessing batch {i//batch_size + 1}/{(len(requests) + batch_size - 1)//batch_size} (videos {i}-{batch_end-1})")
-            print(f"Submitting {len(batch)} videos to FAL queue...")
-            
-            # Create tasks for this batch
-            tasks = [
-                process_single_video(request, index)
-                for index, request in enumerate(batch, start=i)
-            ]
-            
-            # Process this batch
-            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Handle any exceptions
-            for j, result in enumerate(batch_results):
-                if isinstance(result, Exception):
-                    all_results.append({
+        for index, request in enumerate(requests):
+            try:
+                # Validate and process request
+                image_url = request.get("image_url")
+                motion_prompt = request.get("motion_prompt")
+                duration = request.get("duration", 6)
+                aspect_ratio = request.get("aspect_ratio", "16:9")
+                motion_strength = request.get("motion_strength", 0.7)
+                model = request.get("model", settings.default_video_model)
+                prompt_optimizer = request.get("prompt_optimizer", True)
+                project_id = request.get("project_id")
+                scene_id = request.get("scene_id")
+                
+                # Validate required parameters
+                if not image_url:
+                    submissions.append({
                         "success": False,
-                        "index": i + j,
-                        "error": str(result),
-                        "request": requests[i + j]
+                        "index": index,
+                        "error": "image_url is required",
+                        "request": request
                     })
-                else:
-                    all_results.append(result)
-            
-            # Log batch completion
-            print(f"Batch {i//batch_size + 1} completed. {len([r for r in batch_results if r.get('success')])} succeeded, {len([r for r in batch_results if not r.get('success')])} failed.")
-            
-            # Small delay between batches to avoid rate limiting
-            if batch_end < len(requests):
-                print("Waiting 2 seconds before next batch...")
-                await asyncio.sleep(2)
+                    continue
+                
+                if not motion_prompt:
+                    submissions.append({
+                        "success": False,
+                        "index": index,
+                        "error": "motion_prompt is required",
+                        "request": request
+                    })
+                    continue
+                
+                # Validate and process image input
+                image_validation = await process_image_input(image_url, fal_service)
+                if not image_validation["valid"]:
+                    submissions.append({
+                        "success": False,
+                        "index": index,
+                        "error": image_validation["error_response"]["message"],
+                        "request": request
+                    })
+                    continue
+                
+                processed_image_url = image_validation["data"]
+                
+                # Prepare arguments based on model
+                if model == "kling_2.1":
+                    model_id = "fal-ai/kling-video/v2.1/standard/image-to-video"
+                    arguments = {
+                        "prompt": motion_prompt,
+                        "image_url": processed_image_url,
+                        "duration": str(duration),
+                        "aspect_ratio": aspect_ratio,
+                        "motion_strength": motion_strength
+                    }
+                else:  # hailuo_02
+                    model_id = "fal-ai/minimax/hailuo-02/standard/image-to-video"
+                    arguments = {
+                        "prompt": motion_prompt,
+                        "image_url": processed_image_url,
+                        "duration": str(duration),
+                        "prompt_optimizer": prompt_optimizer
+                    }
+                
+                # Submit job
+                print(f"[Job {index}] Submitting {duration}s video...")
+                handler = await fal_client.submit_async(model_id, arguments=arguments)
+                
+                submissions.append({
+                    "success": True,
+                    "index": index,
+                    "request_id": handler.request_id,
+                    "model_id": model_id,
+                    "model": model,
+                    "duration": duration,
+                    "request": request,
+                    "image_url": image_url,
+                    "processed_image_url": processed_image_url,
+                    "project_id": project_id,
+                    "scene_id": scene_id,
+                    "motion_prompt": motion_prompt,
+                    "aspect_ratio": aspect_ratio
+                })
+                print(f"[Job {index}] Submitted with ID: {handler.request_id}")
+                
+            except Exception as e:
+                submissions.append({
+                    "success": False,
+                    "index": index,
+                    "error": str(e),
+                    "request": request
+                })
         
-        results = all_results
+        successful_submissions = [s for s in submissions if s.get("success", False)]
+        print(f"\nSuccessfully submitted {len(successful_submissions)} out of {len(requests)} jobs")
+        
+        # Step 2: Poll for results
+        print("\nStep 2: Polling for results...")
+        results = []
+        start_time = time.time()
+        max_wait_time = 300  # 5 minutes max
+        poll_interval = 10  # Check every 10 seconds
+        
+        # Track which jobs are still pending
+        pending_jobs = {s["index"]: s for s in successful_submissions}
+        completed_jobs = {}
+        
+        while pending_jobs and (time.time() - start_time) < max_wait_time:
+            # Check each pending job
+            jobs_to_remove = []
+            
+            for index, submission in list(pending_jobs.items()):
+                try:
+                    # Try to get result
+                    result = await fal_client.result_async(
+                        submission["model_id"],
+                        submission["request_id"]
+                    )
+                    
+                    print(f"[Job {index}] Completed!")
+                    
+                    # Extract video URL
+                    video_url = None
+                    if isinstance(result, dict):
+                        video_url = result.get("video", {}).get("url") or result.get("url") or result.get("output_url")
+                    
+                    if not video_url:
+                        completed_jobs[index] = {
+                            "success": False,
+                            "index": index,
+                            "error": f"No video URL in result: {result}",
+                            "request": submission["request"]
+                        }
+                    else:
+                        # Calculate cost
+                        cost = calculate_video_cost(submission["model"], submission["duration"])
+                        
+                        # Create result
+                        completed_jobs[index] = {
+                            "success": True,
+                            "index": index,
+                            "asset": {
+                                "url": video_url,
+                                "type": "video",
+                                "cost": cost,
+                                "duration": submission["duration"]
+                            },
+                            "generation_details": {
+                                "model": submission["model"],
+                                "motion_prompt": submission["motion_prompt"],
+                                "duration": submission["duration"],
+                                "aspect_ratio": submission["aspect_ratio"],
+                                "source_image": submission["image_url"]
+                            }
+                        }
+                        
+                        # Handle project/scene association if needed
+                        if submission["project_id"] and submission["scene_id"]:
+                            # Create asset and add to project
+                            asset = Asset(
+                                type=AssetType.VIDEO,
+                                source=AssetSource.GENERATED,
+                                url=video_url,
+                                cost=cost,
+                                metadata={
+                                    "model": submission["model"],
+                                    "source_image": submission["image_url"],
+                                    "motion_prompt": submission["motion_prompt"],
+                                    "duration": submission["duration"],
+                                    "aspect_ratio": submission["aspect_ratio"],
+                                    "batch_index": index
+                                }
+                            )
+                            
+                            project_validation = validate_project_exists(submission["project_id"], ProjectManager)
+                            if project_validation["valid"]:
+                                project = project_validation["project"]
+                                scene = next((s for s in project.scenes if s.id == submission["scene_id"]), None)
+                                if scene:
+                                    scene.assets.append(asset)
+                                    project.total_cost = project.calculate_cost()
+                                    project.actual_duration = project.calculate_duration()
+                                    project.updated_at = asset.created_at
+                                    
+                                    # Download asset
+                                    download_result = await asset_storage.download_asset(
+                                        url=video_url,
+                                        project_id=submission["project_id"],
+                                        asset_id=asset.id,
+                                        asset_type="video"
+                                    )
+                                    if download_result["success"]:
+                                        asset.local_path = download_result["local_path"]
+                                        completed_jobs[index]["asset"]["local_path"] = download_result["local_path"]
+                                    
+                                    completed_jobs[index]["asset"]["id"] = asset.id
+                    
+                    jobs_to_remove.append(index)
+                    
+                except Exception as e:
+                    # Check if it's still processing
+                    error_str = str(e).lower()
+                    if "not found" not in error_str and "pending" not in error_str and "processing" not in error_str:
+                        # This is an actual error
+                        print(f"[Job {index}] Failed: {e}")
+                        completed_jobs[index] = {
+                            "success": False,
+                            "index": index,
+                            "error": str(e),
+                            "request": submission["request"]
+                        }
+                        jobs_to_remove.append(index)
+            
+            # Remove completed jobs from pending
+            for index in jobs_to_remove:
+                del pending_jobs[index]
+            
+            if pending_jobs:
+                elapsed = time.time() - start_time
+                print(f"\nStill waiting for {len(pending_jobs)} jobs: {list(pending_jobs.keys())}")
+                print(f"Elapsed time: {elapsed:.1f}s")
+                await asyncio.sleep(poll_interval)
+        
+        # Handle timeouts
+        for index, submission in pending_jobs.items():
+            completed_jobs[index] = {
+                "success": False,
+                "index": index,
+                "error": f"Timed out after {max_wait_time} seconds",
+                "request": submission["request"]
+            }
+        
+        # Add failed submissions
+        for submission in submissions:
+            if not submission.get("success", False):
+                completed_jobs[submission["index"]] = submission
+        
+        # Sort results by index
+        results = [completed_jobs.get(i, {"success": False, "index": i, "error": "Unknown error"}) 
+                  for i in range(len(requests))]
         
         # Aggregate results
-        successful = [r for r in results if r["success"]]
-        failed = [r for r in results if not r["success"]]
+        successful = [r for r in results if r.get("success", False)]
+        failed = [r for r in results if not r.get("success", False)]
         
         total_cost = sum(
-            r["asset"]["cost"] for r in successful
+            r.get("asset", {}).get("cost", 0) for r in successful
         )
         
         total_duration = sum(
-            r["asset"]["duration"] for r in successful
+            r.get("asset", {}).get("duration", 0) for r in successful
         )
         
         return {
