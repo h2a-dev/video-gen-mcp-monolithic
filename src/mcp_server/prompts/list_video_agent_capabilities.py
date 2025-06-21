@@ -160,11 +160,6 @@ assemble_video(project_id)
 • Check platform specs with `platform://specs` before generating
 • Monitor costs in real-time with `project://costs` resource
 
-### Cost Optimization
-• Reuse images across scenes with different animations
-• Skip background music for sub-60 second videos
-• Generate voiceover only for key scenes
-• Consider Hailuo model for 10% cost savings on video generation
 
 ### Platform-Specific Tips
 • **TikTok/Reels**: Keep scenes under 5 seconds, use vertical format (9:16)
