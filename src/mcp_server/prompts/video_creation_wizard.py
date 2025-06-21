@@ -137,20 +137,20 @@ If you have reference images or want to use local files:
 
 #### Visual-First Workflow (for non-narrated videos):
 1. **Create scenes** with visual descriptions
-2. **Generate ALL images at once** (parallel generation!)
-3. **Animate ALL images at once** (5x faster!)
+2. **Delegate ALL image generation to agents** (generate in one message!)
+3. **Delegate ALL video animation to agents** (5x faster!)
 4. **Generate music** that matches the mood
 5. **Assemble** into final video
 
-### 🚀 CRITICAL: Use Parallel Generation!
-**Always generate multiple assets in ONE message for maximum speed:**
+### 🚀 CRITICAL: Delegate to Claude Code Agents!
+**Always delegate multiple tasks to agents in ONE message for maximum speed:**
 ```
-# Generate all scene images at once (call ALL in ONE message):
+# Delegate all image generation to agents (call ALL in ONE message):
 generate_image_from_text("scene 1 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s1)
 generate_image_from_text("scene 2 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s2)
 generate_image_from_text("scene 3 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s3)
 
-# Then animate all videos at once (RECOMMENDED: Hailuo for cost savings):
+# Then delegate all video animation to agents (RECOMMENDED: Hailuo for cost savings):
 generate_video_from_image(img1_url, "elegant camera movement", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s1)
 generate_video_from_image(img2_url, "smooth transition", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s2)
 generate_video_from_image(img3_url, "dramatic finale", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s3)
@@ -160,7 +160,7 @@ generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16
 generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s2)
 generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s3)
 
-# This runs 3x faster than calling them one by one!
+# Agents handle all tasks simultaneously - 3x faster than sequential!
 ```
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
