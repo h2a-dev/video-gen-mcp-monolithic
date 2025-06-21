@@ -135,49 +135,44 @@ assemble_video(project_id)
 export_final_video(project_id, "instagram_reel")
 ```
 
-## 🚀 Batch Generation for Guaranteed Parallel Processing
+## 🚀 Parallel Generation for Better Performance
 
-### RECOMMENDED: Use Batch Tools for Multiple Assets
-When creating multiple scenes, use the batch generation tools for guaranteed parallel processing:
+### RECOMMENDED: Call Tools in Parallel
+When creating multiple scenes, make multiple tool calls simultaneously:
 
 ```python
-# ✅ BEST: Use batch tool (guaranteed parallel, 5x faster!)
-generate_video_from_image_batch([
-    {"image_url": image1_url, "motion_prompt": "slow zoom in", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s1},
-    {"image_url": image2_url, "motion_prompt": "pan left", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s2},
-    {"image_url": image3_url, "motion_prompt": "zoom out", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s3},
-    {"image_url": image4_url, "motion_prompt": "tilt up", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s4},
-    {"image_url": image5_url, "motion_prompt": "fade in", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s5}
-])
+# ✅ BEST: Call multiple tools in one message (agent handles parallel execution)
+# Make all these calls at once:
+generate_video_from_image(image1_url, "slow zoom in", duration=6, model="hailuo_02", project_id=pid, scene_id=s1)
+generate_video_from_image(image2_url, "pan left", duration=6, model="hailuo_02", project_id=pid, scene_id=s2)
+generate_video_from_image(image3_url, "zoom out", duration=6, model="hailuo_02", project_id=pid, scene_id=s3)
+generate_video_from_image(image4_url, "tilt up", duration=6, model="hailuo_02", project_id=pid, scene_id=s4)
+generate_video_from_image(image5_url, "fade in", duration=6, model="hailuo_02", project_id=pid, scene_id=s5)
 
-# ❌ WRONG: Sequential generation (5x slower!)
+# ❌ WRONG: Sequential generation (slower!)
 # Don't call tools one by one waiting for each to complete
 ```
 
-### Why Batch Generation Works:
-• Processes all requests truly in parallel on FAL's servers
-• 5 scenes complete in the time it takes to generate 1
-• Reduces total wait time from 5+ minutes to ~1-2 minutes
-• Works for both video and image generation
-• Returns individual success/error status for each item
+### Why Parallel Tool Calls Work:
+• Agent intelligently manages concurrent requests
+• Multiple scenes process simultaneously
+• Simple and reliable - each tool call is independent
+• No complex queue management needed
+• Still much faster than sequential processing
 
-### Example: Complete Video Project with Batch Processing
+### Example: Complete Video Project with Parallel Processing
 ```python
-# Step 1: Transform reference images in batch (if needed)
-transformed = generate_image_from_image_batch([
-    {"image_url": ref1, "prompt": "add cinematic lighting", "project_id": pid, "scene_id": s1},
-    {"image_url": ref2, "prompt": "enhance colors", "project_id": pid, "scene_id": s2},
-    {"image_url": ref3, "prompt": "add dramatic shadows", "project_id": pid, "scene_id": s3}
-])
+# Step 1: Transform reference images (if needed) - call all at once
+generate_image_from_image(ref1, "add cinematic lighting", project_id=pid, scene_id=s1)
+generate_image_from_image(ref2, "enhance colors", project_id=pid, scene_id=s2)
+generate_image_from_image(ref3, "add dramatic shadows", project_id=pid, scene_id=s3)
 
-# Step 2: Generate all videos in one batch call
-videos = generate_video_from_image_batch([
-    {"image_url": img1, "motion_prompt": "slow zoom in", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s1},
-    {"image_url": img2, "motion_prompt": "pan left", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s2},
-    {"image_url": img3, "motion_prompt": "zoom out", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s3}
-])
+# Step 2: Generate all videos - call all at once
+generate_video_from_image(img1, "slow zoom in", duration=6, model="hailuo_02", project_id=pid, scene_id=s1)
+generate_video_from_image(img2, "pan left", duration=6, model="hailuo_02", project_id=pid, scene_id=s2)
+generate_video_from_image(img3, "zoom out", duration=6, model="hailuo_02", project_id=pid, scene_id=s3)
 
-# Step 3: Generate audio (still individual calls for now)
+# Step 3: Generate audio
 generate_speech(text1, project_id=pid, scene_id=s1)
 generate_music("epic background music", project_id=pid)
 ```
