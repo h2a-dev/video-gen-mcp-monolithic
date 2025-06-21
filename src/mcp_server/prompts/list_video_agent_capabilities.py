@@ -123,9 +123,51 @@ assemble_video(project_id)
 export_final_video(project_id, "instagram_reel")
 ```
 
+## 🚀 Parallel Generation for Maximum Speed
+
+### IMPORTANT: Generate Multiple Assets Simultaneously
+When creating multiple scenes, generate ALL videos at once by making multiple tool calls in a single message:
+
+```python
+# ✅ CORRECT: Parallel generation (5x faster!)
+# Call all these in ONE message:
+generate_video_from_image(image1_url, "slow zoom in", duration=5, project_id=pid, scene_id=s1)
+generate_video_from_image(image2_url, "pan left", duration=5, project_id=pid, scene_id=s2)
+generate_video_from_image(image3_url, "zoom out", duration=5, project_id=pid, scene_id=s3)
+generate_video_from_image(image4_url, "tilt up", duration=5, project_id=pid, scene_id=s4)
+generate_video_from_image(image5_url, "fade in", duration=5, project_id=pid, scene_id=s5)
+
+# ❌ WRONG: Sequential generation (5x slower!)
+# Don't wait for each to complete before starting the next
+```
+
+### Why Parallel Generation Works:
+• All jobs run simultaneously on FAL's servers
+• 5 scenes complete in the time it takes to generate 1
+• Reduces total wait time from 5+ minutes to ~1-2 minutes
+• Works for images, videos, and audio generation
+
+### Example: Complete Video Project in Parallel
+```python
+# Step 1: Generate all images at once
+generate_image_from_text("scene 1 description", project_id=pid, scene_id=s1)
+generate_image_from_text("scene 2 description", project_id=pid, scene_id=s2)
+generate_image_from_text("scene 3 description", project_id=pid, scene_id=s3)
+
+# Step 2: After images complete, generate all videos at once
+generate_video_from_image(img1_url, "motion 1", project_id=pid, scene_id=s1)
+generate_video_from_image(img2_url, "motion 2", project_id=pid, scene_id=s2)
+generate_video_from_image(img3_url, "motion 3", project_id=pid, scene_id=s3)
+
+# Step 3: Generate audio in parallel too
+generate_speech(text1, project_id=pid, scene_id=s1)
+generate_music("background music", project_id=pid)
+```
+
 ## 💡 Pro Tips
 
 ### Workflow Best Practices
+• **CRITICAL**: Use parallel generation for multiple scenes - call all generation tools in ONE message
 • **IMPORTANT**: Generate voiceover FIRST for narrated videos - this ensures perfect audio-visual sync
 • **CRITICAL**: When user provides reference image URL, use `generate_image_from_image`, NOT `generate_image_from_text`
 • Start with `video_creation_wizard()` for guided workflows

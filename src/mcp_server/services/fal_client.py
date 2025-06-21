@@ -289,14 +289,62 @@ class FALClient:
                                 print(f"[FAL] {log}")
                 
                 print(f"Submitting job to queue for model: {model_id}")
-                result = await fal_client.subscribe_async(
-                    model_id,
-                    arguments=arguments,
-                    on_queue_update=on_queue_update,
-                )
                 
-                print(f"Job completed successfully!")
-                return result
+                # For longer videos (10s), use submit/poll pattern to avoid timeouts
+                video_duration = arguments.get('duration', '5')
+                if isinstance(video_duration, str):
+                    video_duration = int(video_duration)
+                
+                # Use submit/poll for videos 10s or longer, or if explicitly requested
+                use_polling = (model_id.endswith('image-to-video') and video_duration >= 10) or arguments.get('use_polling', False)
+                
+                if use_polling:
+                    print(f"Using polling method for long-running job (duration: {video_duration}s)")
+                    # Submit job
+                    handler = await fal_client.submit_async(model_id, arguments=arguments)
+                    request_id = handler.request_id
+                    print(f"Job submitted. Request ID: {request_id}")
+                    
+                    # Poll for completion
+                    poll_interval = 15  # seconds
+                    max_polls = int(self.timeout / poll_interval)
+                    
+                    for poll_count in range(max_polls):
+                        await asyncio.sleep(poll_interval)
+                        
+                        try:
+                            # Try to get result
+                            result = await fal_client.result_async(model_id, request_id)
+                            print(f"Job completed successfully after {(poll_count + 1) * poll_interval} seconds!")
+                            return result
+                        except Exception as e:
+                            # If not ready, check status
+                            try:
+                                status = await fal_client.status_async(model_id, request_id, with_logs=True)
+                                if hasattr(status, 'logs') and status.logs:
+                                    for log in status.logs[-5:]:  # Show last 5 logs
+                                        if isinstance(log, dict) and 'message' in log:
+                                            print(f"[FAL] {log['message']}")
+                                        elif isinstance(log, str):
+                                            print(f"[FAL] {log}")
+                            except:
+                                pass
+                            
+                            print(f"Job still processing... ({(poll_count + 1) * poll_interval}s elapsed)")
+                    
+                    # Final attempt
+                    result = await fal_client.result_async(model_id, request_id)
+                    return result
+                else:
+                    # Use subscribe for shorter jobs
+                    result = await fal_client.subscribe_async(
+                        model_id,
+                        arguments=arguments,
+                        on_queue_update=on_queue_update,
+                    )
+                    
+                    print(f"Job completed successfully!")
+                    return result
                     
             except asyncio.TimeoutError:
                 last_error = f"Request timed out after {self.timeout} seconds"

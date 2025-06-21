@@ -110,10 +110,24 @@ If you have reference images or want to use local files:
 
 #### Visual-First Workflow (for non-narrated videos):
 1. **Create scenes** with visual descriptions
-2. **Generate images** for each scene
-3. **Animate images** with dynamic motion
+2. **Generate ALL images at once** (parallel generation!)
+3. **Animate ALL images at once** (5x faster!)
 4. **Generate music** that matches the mood
 5. **Assemble** into final video
+
+### 🚀 CRITICAL: Use Parallel Generation!
+**Always generate multiple assets in ONE message for maximum speed:**
+```
+# Generate all scene images at once:
+generate_image_from_text("scene 1", project_id=pid, scene_id=s1)
+generate_image_from_text("scene 2", project_id=pid, scene_id=s2)
+generate_image_from_text("scene 3", project_id=pid, scene_id=s3)
+
+# Then animate all videos at once:
+generate_video_from_image(img1, "zoom in", project_id=pid, scene_id=s1)
+generate_video_from_image(img2, "pan left", project_id=pid, scene_id=s2)
+generate_video_from_image(img3, "zoom out", project_id=pid, scene_id=s3)
+```
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
 {_get_platform_specific_tips(platform)}
