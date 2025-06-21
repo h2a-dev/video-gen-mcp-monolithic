@@ -126,25 +126,23 @@ async def process_single_video(request: Dict[str, Any], index: int, retry_count:
         else:  # hailuo_02
             kwargs["prompt_optimizer"] = prompt_optimizer
         
-        # Determine timeout based on duration
-        # 10-second videos need more time
-        timeout_seconds = 180 if duration == 10 else 120
+        # Log start of video generation
+        print(f"[Batch {index}] Starting video generation for {duration}s video")
         
-        print(f"[Batch {index}] Starting video generation for {duration}s video with {timeout_seconds}s timeout")
+        # Force polling for better queue management without webhooks
+        kwargs['use_polling'] = True
         
-        # Generate the video with timeout
-        try:
-            result = await asyncio.wait_for(
-                fal_service.generate_video_from_image(**kwargs),
-                timeout=timeout_seconds
-            )
-        except asyncio.TimeoutError:
+        # Generate the video
+        print(f"[Batch {index}] Submitting video generation request...")
+        result = await fal_service.generate_video_from_image(**kwargs)
+        
+        if not result["success"]:
             elapsed = time.time() - start_time
-            error_msg = f"Video generation timed out after {elapsed:.1f}s (timeout: {timeout_seconds}s)"
-            print(f"[Batch {index}] {error_msg}")
+            error_msg = result.get("error", "Generation failed")
+            print(f"[Batch {index}] Failed after {elapsed:.1f}s: {error_msg}")
             
-            # Retry once for timeouts
-            if retry_count < 1:
+            # Retry once for failures
+            if retry_count < 1 and "timeout" in error_msg.lower():
                 print(f"[Batch {index}] Retrying video generation...")
                 return await process_single_video(request, index, retry_count + 1)
             
@@ -154,15 +152,6 @@ async def process_single_video(request: Dict[str, Any], index: int, retry_count:
                 "error": error_msg,
                 "request": request,
                 "elapsed_time": elapsed
-            }
-        
-        if not result["success"]:
-            return {
-                "success": False,
-                "index": index,
-                "error": result.get("error", "Generation failed"),
-                "request": request,
-                "elapsed_time": time.time() - start_time
             }
         
         # Calculate cost
@@ -300,17 +289,18 @@ async def generate_video_from_image_batch(
                 example="Process in batches of 10 or fewer videos"
             )
         
-        print(f"Starting batch video generation for {len(requests)} videos")
+        print(f"\n=== Starting batch video generation for {len(requests)} videos ===")
         
         # Process videos in smaller groups to avoid overwhelming the API
-        batch_size = 3  # Process 3 videos at a time
+        batch_size = 5  # Process 5 videos at a time
         all_results = []
         
         for i in range(0, len(requests), batch_size):
             batch_end = min(i + batch_size, len(requests))
             batch = requests[i:batch_end]
             
-            print(f"Processing batch {i//batch_size + 1}/{(len(requests) + batch_size - 1)//batch_size} (videos {i}-{batch_end-1})")
+            print(f"\nProcessing batch {i//batch_size + 1}/{(len(requests) + batch_size - 1)//batch_size} (videos {i}-{batch_end-1})")
+            print(f"Submitting {len(batch)} videos to FAL queue...")
             
             # Create tasks for this batch
             tasks = [
@@ -332,6 +322,9 @@ async def generate_video_from_image_batch(
                     })
                 else:
                     all_results.append(result)
+            
+            # Log batch completion
+            print(f"Batch {i//batch_size + 1} completed. {len([r for r in batch_results if r.get('success')])} succeeded, {len([r for r in batch_results if not r.get('success')])} failed.")
             
             # Small delay between batches to avoid rate limiting
             if batch_end < len(requests):
