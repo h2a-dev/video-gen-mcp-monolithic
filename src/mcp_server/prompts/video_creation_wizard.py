@@ -65,20 +65,36 @@ Based on {recommended_duration} seconds, I recommend:
 #### For Videos WITH Voiceover (Recommended Workflow):
 1. **Generate voiceover FIRST** to establish timing:
    ```
-   generate_speech(text=script, voice="Friendly_Person")
+   generate_speech(text=script, voice="Friendly_Person", speed=1.0, project_id=project_id, scene_id=scene_id)
    ```
-   Available voices:
-   - **Wise_Woman**: Professional, authoritative
-   - **Friendly_Person**: Warm, approachable 
-   - **Deep_Voice_Man**: Deep, commanding
-   - **Calm_Woman**: Soothing, peaceful
-   - **Inspirational_girl**: Energetic, motivating
+   Common voices (17 total available):
+   - **Wise_Woman**: Professional, authoritative female
+   - **Friendly_Person**: Warm, approachable narrator (default)
+   - **Deep_Voice_Man**: Deep, commanding male
+   - **Calm_Woman**: Soothing, peaceful female
+   - **Inspirational_girl**: Energetic, motivating young female
+   - **Casual_Guy**: Relaxed, conversational male
+   - See all 17 voices in tool documentation
 
 2. **Plan scenes based on voiceover timing** - ensures perfect sync
 3. **Generate images** that match narration beats
+   ```
+   generate_image_from_text(prompt, model="imagen4", aspect_ratio="16:9", style_modifiers=["cinematic"], project_id=pid, scene_id=sid)
+   ```
+   - Models: **imagen4** (default, fast) or **flux_pro** (artistic)
    - 🎥 **TIP**: Use `cinematic_photography_guide()` for professional visuals!
+   
 4. **Animate images** with motion that complements the audio
+   ```
+   generate_video_from_image(image_url, motion_prompt, duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=sid)
+   ```
+   - Duration: 5 or 10 seconds only
+   - Motion strength: 0.1-1.0 (default 0.7)
+   
 5. **Add background music** at lower volume
+   ```
+   generate_music(prompt, duration=95, project_id=project_id)
+   ```
 
 #### For Videos WITHOUT Voiceover:
 1. Generate images for visual storytelling
@@ -89,13 +105,18 @@ Based on {recommended_duration} seconds, I recommend:
 If you have reference images or want to use local files:
 1. **Local files are auto-uploaded**: Just provide the path
    ```
-   generate_video_from_image("/path/to/image.jpg", "slow zoom in")
+   generate_video_from_image("/path/to/image.jpg", "slow zoom in", duration=5, project_id=pid, scene_id=sid)
    ```
 2. **Transform existing images**: Use generate_image_from_image
    ```
-   generate_image_from_image("/path/to/image.jpg", "add cinematic lighting")
+   generate_image_from_image("/path/to/image.jpg", "add cinematic lighting", guidance_scale=3.5, project_id=pid, scene_id=sid)
    ```
+   - Guidance scale: 1.0-10.0 (how closely to follow prompt, default 3.5)
 3. **URLs work directly**: No upload needed for web images
+4. **Upload files explicitly** if needed:
+   ```
+   upload_image_file("/path/to/image.jpg")  # Returns URL for use in other tools
+   ```
 
 ### Step 5: Production Workflow
 
@@ -118,19 +139,47 @@ If you have reference images or want to use local files:
 ### 🚀 CRITICAL: Use Parallel Generation!
 **Always generate multiple assets in ONE message for maximum speed:**
 ```
-# Generate all scene images at once:
-generate_image_from_text("scene 1", project_id=pid, scene_id=s1)
-generate_image_from_text("scene 2", project_id=pid, scene_id=s2)
-generate_image_from_text("scene 3", project_id=pid, scene_id=s3)
+# Generate all scene images at once (call ALL in ONE message):
+generate_image_from_text("scene 1 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s1)
+generate_image_from_text("scene 2 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s2)
+generate_image_from_text("scene 3 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s3)
 
-# Then animate all videos at once:
-generate_video_from_image(img1, "zoom in", project_id=pid, scene_id=s1)
-generate_video_from_image(img2, "pan left", project_id=pid, scene_id=s2)
-generate_video_from_image(img3, "zoom out", project_id=pid, scene_id=s3)
+# Then animate all videos at once (call ALL in ONE message):
+generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=s1)
+generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=s2)
+generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=s3)
+
+# This runs 3x faster than calling them one by one!
 ```
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
 {_get_platform_specific_tips(platform)}
+
+## 🛠️ Assembly & Export Tools
+
+### Final Assembly (call ONCE after all generation):
+```
+assemble_video(project_id, scene_ids=None, output_format="mp4", quality_preset="high")
+```
+- Automatically combines ALL scenes and audio tracks
+- Quality presets: "low", "medium", "high"
+
+### Optional Export for Platform:
+```
+export_final_video(project_id, platform="youtube", include_captions=False, include_watermark=False)
+```
+
+### Download Assets Locally:
+```
+download_assets(asset_urls, project_id, asset_type="video", parallel_downloads=5)
+```
+
+## 📊 Helpful Analysis Tools
+
+- **analyze_script**(script, target_duration, platform) - Get scene suggestions and timing
+- **suggest_scenes**(project_id, style="dynamic") - Generate scene ideas
+- **Get current status**: Use resource `project://current`
+- **Check costs**: Use resource `project://{project_id}/costs`
 
 ## 💰 Estimated Budget
 For a {format_duration(recommended_duration)} video:
