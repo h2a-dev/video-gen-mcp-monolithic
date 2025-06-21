@@ -38,7 +38,7 @@ class Settings:
         
         # Default generation parameters
         self.default_image_model = os.getenv("DEFAULT_IMAGE_MODEL", "imagen4")
-        self.default_video_model = os.getenv("DEFAULT_VIDEO_MODEL", "kling-2.1")
+        self.default_video_model = os.getenv("DEFAULT_VIDEO_MODEL", "kling_2.1")
         self.default_music_model = os.getenv("DEFAULT_MUSIC_MODEL", "lyria2")
         self.default_speech_model = os.getenv("DEFAULT_SPEECH_MODEL", "minimax")
         

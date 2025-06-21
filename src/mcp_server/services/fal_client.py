@@ -92,18 +92,26 @@ class FALClient:
         motion_prompt: str,
         duration: int = 5,
         aspect_ratio: str = "16:9",
+        model: str = "kling_2.1",
         **kwargs
     ) -> Dict[str, Any]:
         """Generate video from single image with motion."""
         try:
-            result = await self._run_kling_video(
-                image_url, motion_prompt, duration, aspect_ratio, **kwargs
-            )
+            if model == "kling_2.1":
+                result = await self._run_kling_video(
+                    image_url, motion_prompt, duration, aspect_ratio, **kwargs
+                )
+            elif model == "hailuo_02":
+                result = await self._run_hailuo_video(
+                    image_url, motion_prompt, duration, aspect_ratio, **kwargs
+                )
+            else:
+                raise ValueError(f"Unsupported video model: {model}")
             
             return {
                 "success": True,
                 "url": result.get("video", {}).get("url"),
-                "model": "kling_2.1",
+                "model": model,
                 "duration": duration,
                 "source_image": image_url,
                 "motion_prompt": motion_prompt,
@@ -113,7 +121,7 @@ class FALClient:
             return {
                 "success": False,
                 "error": str(e),
-                "model": "kling_2.1"
+                "model": model
             }
     
     async def generate_music(
@@ -212,6 +220,10 @@ class FALClient:
         self, image_url: str, prompt: str, duration: int, aspect_ratio: str, **kwargs
     ) -> Dict[str, Any]:
         """Run Kling 2.1 video generation with retry logic."""
+        # Remove any hailuo-specific parameters
+        kwargs_copy = kwargs.copy()
+        kwargs_copy.pop('prompt_optimizer', None)
+        
         return await self._run_with_retry(
             model_id="fal-ai/kling-video/v2.1/standard/image-to-video",
             arguments={
@@ -219,7 +231,29 @@ class FALClient:
                 "image_url": image_url,
                 "duration": str(duration),
                 "aspect_ratio": aspect_ratio,
-                **kwargs
+                **kwargs_copy
+            }
+        )
+    
+    async def _run_hailuo_video(
+        self, image_url: str, prompt: str, duration: int, aspect_ratio: str, **kwargs
+    ) -> Dict[str, Any]:
+        """Run Hailuo 02 video generation with retry logic."""
+        # Remove any kling-specific parameters
+        kwargs_copy = kwargs.copy()
+        kwargs_copy.pop('motion_strength', None)
+        
+        # Extract prompt_optimizer with default True
+        prompt_optimizer = kwargs_copy.pop('prompt_optimizer', True)
+        
+        return await self._run_with_retry(
+            model_id="fal-ai/minimax/hailuo-02/standard/image-to-video",
+            arguments={
+                "prompt": prompt,
+                "image_url": image_url,
+                "duration": str(duration),
+                "prompt_optimizer": prompt_optimizer,
+                **kwargs_copy
             }
         )
     

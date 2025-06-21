@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
-from ...config import calculate_video_cost
+from ...config import calculate_video_cost, settings
 from ...utils import (
     create_error_response,
     ErrorType,
@@ -30,6 +30,8 @@ async def generate_video_from_image(
     duration: int = 5,
     aspect_ratio: str = "16:9",
     motion_strength: float = 0.7,
+    model: Optional[str] = None,
+    prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -39,9 +41,11 @@ async def generate_video_from_image(
     Args:
         image_url: Image input - can be a URL or local file path
         motion_prompt: Description of the motion to apply
-        duration: Video duration in seconds (5 or 10)
+        duration: Video duration in seconds (5 or 10 for Kling, 6 or 10 for Hailuo)
         aspect_ratio: Video aspect ratio
-        motion_strength: Motion intensity (0.1-1.0)
+        motion_strength: Motion intensity (0.1-1.0) - only used for Kling model
+        model: Video generation model ("kling_2.1" or "hailuo_02"). Defaults to settings
+        prompt_optimizer: Whether to use prompt optimization - only used for Hailuo model
         project_id: Optional project to associate with
         scene_id: Optional scene to associate with
     
@@ -67,10 +71,35 @@ async def generate_video_from_image(
                 example="motion_prompt='Camera slowly zooms in while panning right'"
             )
         
-        # Validate duration
-        duration_validation = validate_duration(duration, valid_durations=[5, 10])
+        # Use default model if not specified
+        if model is None:
+            model = settings.default_video_model
+        
+        # Validate model
+        if model not in ["kling_2.1", "hailuo_02"]:
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                f"Invalid model: {model}",
+                details={"parameter": "model", "valid_models": ["kling_2.1", "hailuo_02"]},
+                suggestion="Choose either 'kling_2.1' or 'hailuo_02' for video generation",
+                example="model='hailuo_02'"
+            )
+        
+        # Validate duration based on model
+        if model == "kling_2.1":
+            valid_durations = [5, 10]
+        else:  # hailuo_02
+            valid_durations = [6, 10]
+        
+        duration_validation = validate_duration(duration, valid_durations=valid_durations)
         if not duration_validation["valid"]:
-            return duration_validation["error_response"]
+            return create_error_response(
+                ErrorType.VALIDATION_ERROR,
+                f"Invalid duration for {model}: {duration}",
+                details={"parameter": "duration", "valid_durations": valid_durations, "model": model},
+                suggestion=f"Use duration {' or '.join(map(str, valid_durations))} for {model}",
+                example=f"duration={valid_durations[0]}"
+            )
         duration = duration_validation["value"]
         
         # Validate aspect ratio
@@ -78,22 +107,31 @@ async def generate_video_from_image(
         if not ratio_validation["valid"]:
             return ratio_validation["error_response"]
         
-        # Validate motion strength
-        strength_validation = validate_range(
-            motion_strength, "motion_strength", 0.1, 1.0, "Motion strength"
-        )
-        if not strength_validation["valid"]:
-            return strength_validation["error_response"]
-        motion_strength = strength_validation["value"]
+        # Validate motion strength (only for Kling model)
+        if model == "kling_2.1":
+            strength_validation = validate_range(
+                motion_strength, "motion_strength", 0.1, 1.0, "Motion strength"
+            )
+            if not strength_validation["valid"]:
+                return strength_validation["error_response"]
+            motion_strength = strength_validation["value"]
         
-        # Generate the video
-        result = await fal_service.generate_video_from_image(
-            image_url=processed_image_url,
-            motion_prompt=motion_prompt,
-            duration=duration,
-            aspect_ratio=aspect_ratio,
-            motion_strength=motion_strength
-        )
+        # Generate the video with model-specific parameters
+        kwargs = {
+            "image_url": processed_image_url,
+            "motion_prompt": motion_prompt,
+            "duration": duration,
+            "aspect_ratio": aspect_ratio,
+            "model": model
+        }
+        
+        # Add model-specific parameters
+        if model == "kling_2.1":
+            kwargs["motion_strength"] = motion_strength
+        else:  # hailuo_02
+            kwargs["prompt_optimizer"] = prompt_optimizer
+        
+        result = await fal_service.generate_video_from_image(**kwargs)
         
         if not result["success"]:
             # If it's an API error, provide helpful context
@@ -101,30 +139,41 @@ async def generate_video_from_image(
                 return handle_fal_api_error(Exception(result["error"]), "video generation")
             return result
         
-        # Calculate cost
-        cost = calculate_video_cost("kling_2.1", duration)
+        # Calculate cost based on model
+        cost = calculate_video_cost(model, duration)
         
         # Create asset record
+        metadata = {
+            "model": model,
+            "source_image": image_url,
+            "motion_prompt": motion_prompt,
+            "duration": duration,
+            "aspect_ratio": aspect_ratio
+        }
+        
+        generation_params = {
+            "image_url": image_url,
+            "motion_prompt": motion_prompt,
+            "duration": duration,
+            "aspect_ratio": aspect_ratio,
+            "model": model
+        }
+        
+        # Add model-specific metadata
+        if model == "kling_2.1":
+            metadata["motion_strength"] = motion_strength
+            generation_params["motion_strength"] = motion_strength
+        else:  # hailuo_02
+            metadata["prompt_optimizer"] = prompt_optimizer
+            generation_params["prompt_optimizer"] = prompt_optimizer
+        
         asset = Asset(
             type=AssetType.VIDEO,
             source=AssetSource.GENERATED,
             url=result["url"],
             cost=cost,
-            metadata={
-                "model": "kling_2.1",
-                "source_image": image_url,
-                "motion_prompt": motion_prompt,
-                "duration": duration,
-                "aspect_ratio": aspect_ratio,
-                "motion_strength": motion_strength
-            },
-            generation_params={
-                "image_url": image_url,
-                "motion_prompt": motion_prompt,
-                "duration": duration,
-                "aspect_ratio": aspect_ratio,
-                "motion_strength": motion_strength
-            }
+            metadata=metadata,
+            generation_params=generation_params
         )
         
         # If associated with a project/scene, validate and add to it
@@ -175,11 +224,12 @@ async def generate_video_from_image(
                 "local_path": asset.local_path
             },
             "generation_details": {
-                "model": "kling_2.1",
+                "model": model,
                 "motion_prompt": motion_prompt,
                 "duration": duration,
                 "aspect_ratio": aspect_ratio,
-                "source_image": image_url
+                "source_image": image_url,
+                **({"motion_strength": motion_strength} if model == "kling_2.1" else {"prompt_optimizer": prompt_optimizer})
             },
             "project_association": {
                 "project_id": project_id,
@@ -212,7 +262,7 @@ async def generate_video_from_image(
         return create_error_response(
             ErrorType.SYSTEM_ERROR,
             f"Failed to generate video: {str(e)}",
-            details={"model": "kling_2.1", "error": str(e)},
+            details={"model": model, "error": str(e)},
             suggestion="Check your image URL and motion prompt, then try again",
             example="generate_video_from_image(image_url='...', motion_prompt='Simple zoom in', duration=5)"
         )

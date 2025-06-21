@@ -189,6 +189,8 @@ async def generate_video_from_image(
     duration: int = 5,
     aspect_ratio: str = "16:9",
     motion_strength: float = 0.7,
+    model: Optional[str] = None,
+    prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -196,11 +198,13 @@ async def generate_video_from_image(
     Convert a single image to video with AI-generated motion.
     
     Args:
-        image_url: URL of the source image
+        image_url: URL or local path of the source image
         motion_prompt: Description of desired motion/animation
-        duration: Video duration in seconds (5 or 10)
+        duration: Video duration in seconds (5 or 10 for Kling, 6 or 10 for Hailuo)
         aspect_ratio: Output video aspect ratio
-        motion_strength: Motion intensity (0.0-1.0)
+        motion_strength: Motion intensity (0.0-1.0) - only used for Kling model
+        model: Video generation model ("kling_2.1" or "hailuo_02"). Defaults to settings
+        prompt_optimizer: Whether to use prompt optimization - only used for Hailuo model
         project_id: Optional project to associate with
         scene_id: Optional scene to associate with
     
@@ -213,7 +217,9 @@ async def generate_video_from_image(
         duration = int(duration)
     if isinstance(motion_strength, str):
         motion_strength = float(motion_strength)
-    return await impl(image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id)
+    if isinstance(prompt_optimizer, str):
+        prompt_optimizer = prompt_optimizer.lower() == "true"
+    return await impl(image_url, motion_prompt, duration, aspect_ratio, motion_strength, model, prompt_optimizer, project_id, scene_id)
 
 
 # ============================================================================

@@ -30,8 +30,11 @@ Video creation and manipulation functions:
 • **generate_image_from_image** (image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id) - Transform images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
   - Safety tolerance: 1-6 (default 5, higher = more permissive)
-• **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id) - Animate still images with AI
+• **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, model, prompt_optimizer, project_id, scene_id) - Animate still images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
+  - Models: "kling_2.1" (5 or 10 sec) or "hailuo_02" (6 or 10 sec)
+  - Motion strength: Only for Kling model (0.1-1.0)
+  - Prompt optimizer: Only for Hailuo model (default True)
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
 • **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
@@ -87,7 +90,7 @@ add_scene(project_id, "Ingredients close-up", duration=5)
 generate_image_from_text("modern kitchen with cooking ingredients", project_id=project_id, scene_id=scene_id)
 
 # Animate the images to complement speech rhythm
-generate_video_from_image(image_url, "slow pan across ingredients", duration=10)
+generate_video_from_image(image_url, "slow pan across ingredients", duration=10, model="kling_2.1")
 
 # Add background music at low volume
 generate_music("upbeat cooking show music", project_id=project_id)
@@ -108,9 +111,9 @@ create_project("My Video", "instagram_reel")
 download_assets([url1, url2, url3], project_id)
 
 # Generate videos from your images (supports URL or local file)
-generate_video_from_image(your_image_url, "zoom in with dramatic effect")
+generate_video_from_image(your_image_url, "zoom in with dramatic effect", model="kling_2.1")
 # Or from local file (auto-uploads):
-generate_video_from_image("/path/to/local/image.png", "pan left slowly")
+generate_video_from_image("/path/to/local/image.png", "pan left slowly", model="hailuo_02", duration=6)
 
 # Transform existing images
 generate_image_from_image("/path/to/image.jpg", "make it more cinematic")
@@ -197,7 +200,9 @@ generate_music("background music", project_id=pid)
 
 ### Generation Costs
 • **Images**: $0.04 per image (imagen4, flux_pro)
-• **Video**: $0.05 per second (kling_2.1)
+• **Video**: 
+  - $0.05 per second (kling_2.1)
+  - $0.045 per second (hailuo_02) - 10% cheaper!
 • **Music**: $0.10 per ~95 second track (lyria2)
 • **Speech**: $0.10 per 1000 characters (minimax)
 
@@ -315,7 +320,10 @@ script_to_scenes(project_id)  # After adding script
   - flux_kontext - Transform ONE reference image with new prompts
   - flux_kontext_multi - Transform MULTIPLE reference images together
   - **IMPORTANT**: Use generate_image_from_image when user provides reference image URL
-• **Video Generation**: kling_2.1 (single image to video), kling_1.6_elements (multi-image to video)
+• **Video Generation**: 
+  - kling_2.1 (default) - 5 or 10 second videos, motion_strength parameter
+  - hailuo_02 - 6 or 10 second videos, prompt_optimizer parameter, 10% cheaper
+  - kling_1.6_elements - multi-image to video
 • **Music**: lyria2 (DeepMind) - ~95 second tracks
 • **Speech**: minimax (multiple voices)
   - Wise_Woman (professional, authoritative)

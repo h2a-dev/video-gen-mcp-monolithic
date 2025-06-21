@@ -86,10 +86,12 @@ Based on {recommended_duration} seconds, I recommend:
    
 4. **Animate images** with motion that complements the audio
    ```
-   generate_video_from_image(image_url, motion_prompt, duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=sid)
+   generate_video_from_image(image_url, motion_prompt, duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=sid)
    ```
-   - Duration: 5 or 10 seconds only
-   - Motion strength: 0.1-1.0 (default 0.7)
+   - Duration: 5 or 10 seconds for Kling, 6 or 10 for Hailuo
+   - Motion strength: 0.1-1.0 (default 0.7, Kling only)
+   - Model: "kling_2.1" (default) or "hailuo_02" (10% cheaper!)
+   - Prompt optimizer: True/False (Hailuo only, improves prompts)
    
 5. **Add background music** at lower volume
    ```
@@ -105,7 +107,9 @@ Based on {recommended_duration} seconds, I recommend:
 If you have reference images or want to use local files:
 1. **Local files are auto-uploaded**: Just provide the path
    ```
-   generate_video_from_image("/path/to/image.jpg", "slow zoom in", duration=5, project_id=pid, scene_id=sid)
+   generate_video_from_image("/path/to/image.jpg", "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=sid)
+   # Or use Hailuo for 10% savings:
+   generate_video_from_image("/path/to/image.jpg", "dramatic reveal", duration=6, model="hailuo_02", project_id=pid, scene_id=sid)
    ```
 2. **Transform existing images**: Use generate_image_from_image
    ```
@@ -146,9 +150,14 @@ generate_image_from_text("scene 2 prompt", model="imagen4", aspect_ratio="16:9",
 generate_image_from_text("scene 3 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s3)
 
 # Then animate all videos at once (call ALL in ONE message):
-generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=s1)
-generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=s2)
-generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, project_id=pid, scene_id=s3)
+generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s1)
+generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s2)
+generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s3)
+
+# Or use Hailuo for all to save 10%:
+generate_video_from_image(img1_url, "elegant camera movement", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s1)
+generate_video_from_image(img2_url, "smooth transition", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s2)
+generate_video_from_image(img3_url, "dramatic finale", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s3)
 
 # This runs 3x faster than calling them one by one!
 ```

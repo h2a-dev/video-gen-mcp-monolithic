@@ -28,6 +28,10 @@ PRICING: Dict[str, Dict[str, float]] = {
         "per_second": 0.05,
         "description": "Kling 2.1 - Image to video"
     },
+    "hailuo_02": {
+        "per_second": 0.045,
+        "description": "Hailuo 02 - Image to video"
+    },
     "kling_1.6_elements": {
         "per_second": 0.045,
         "description": "Kling 1.6 Elements - Multiple images to video"

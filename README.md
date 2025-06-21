@@ -94,7 +94,7 @@ creating a project and planning the scenes...
 ### Content Generation
 - `generate_image_from_text` - Create images from text prompts with style modifiers
 - `generate_image_from_image` - Transform existing images with AI-powered editing
-- `generate_video_from_image` - Animate still images with AI-generated motion (supports local files)
+- `generate_video_from_image` - Animate still images with AI-generated motion (supports Kling 2.1 and Hailuo 02 models)
 - `generate_music` - Create background music from text descriptions
 - `generate_speech` - Generate voiceovers with multiple voice options
 
@@ -131,7 +131,7 @@ Environment variables:
 - `FALAI_API_KEY` - Your FAL AI API key (required)
 - `VIDEO_AGENT_STORAGE` - Storage directory (default: ./storage)
 - `DEFAULT_IMAGE_MODEL` - Default image model (default: imagen4)
-- `DEFAULT_VIDEO_MODEL` - Default video model (default: kling-2.1)
+- `DEFAULT_VIDEO_MODEL` - Default video model (default: kling_2.1, options: hailuo_02)
 
 ## Project Structure
 
