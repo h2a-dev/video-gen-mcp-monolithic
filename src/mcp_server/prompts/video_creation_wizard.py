@@ -86,12 +86,12 @@ Based on {recommended_duration} seconds, I recommend:
    
 4. **Animate images** with motion that complements the audio
    ```
-   generate_video_from_image(image_url, motion_prompt, duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=sid)
+   generate_video_from_image(image_url, motion_prompt, duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=sid)
    ```
-   - Duration: 5 or 10 seconds for Kling, 6 or 10 for Hailuo
-   - Motion strength: 0.1-1.0 (default 0.7, Kling only)
-   - Model: "kling_2.1" (default) or "hailuo_02" (10% cheaper!)
-   - Prompt optimizer: True/False (Hailuo only, improves prompts)
+   - Duration: 6 or 10 seconds for Hailuo (RECOMMENDED), 5 or 10 for Kling
+   - Model: "hailuo_02" (RECOMMENDED - 10% cheaper!) or "kling_2.1"
+   - Prompt optimizer: True by default (Hailuo only, improves results)
+   - Motion strength: 0.1-1.0 (Kling only)
    
 5. **Add background music** at lower volume
    ```
@@ -107,9 +107,10 @@ Based on {recommended_duration} seconds, I recommend:
 If you have reference images or want to use local files:
 1. **Local files are auto-uploaded**: Just provide the path
    ```
-   generate_video_from_image("/path/to/image.jpg", "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=sid)
-   # Or use Hailuo for 10% savings:
+   # Recommended: Use Hailuo for 10% savings and better prompts:
    generate_video_from_image("/path/to/image.jpg", "dramatic reveal", duration=6, model="hailuo_02", project_id=pid, scene_id=sid)
+   # Alternative: Kling for 5-second videos:
+   generate_video_from_image("/path/to/image.jpg", "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=sid)
    ```
 2. **Transform existing images**: Use generate_image_from_image
    ```
@@ -149,15 +150,15 @@ generate_image_from_text("scene 1 prompt", model="imagen4", aspect_ratio="16:9",
 generate_image_from_text("scene 2 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s2)
 generate_image_from_text("scene 3 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s3)
 
-# Then animate all videos at once (call ALL in ONE message):
-generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s1)
-generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s2)
-generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s3)
-
-# Or use Hailuo for all to save 10%:
+# Then animate all videos at once (RECOMMENDED: Hailuo for cost savings):
 generate_video_from_image(img1_url, "elegant camera movement", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s1)
 generate_video_from_image(img2_url, "smooth transition", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s2)
 generate_video_from_image(img3_url, "dramatic finale", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s3)
+
+# Alternative: Use Kling if you need 5-second videos:
+generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s1)
+generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s2)
+generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s3)
 
 # This runs 3x faster than calling them one by one!
 ```
@@ -214,11 +215,11 @@ Just say "Let's start!" and I'll create your project and guide you through each 
 def _get_scene_duration_recommendation(total_duration: int) -> str:
     """Get scene duration mix recommendation."""
     if total_duration <= 30:
-        return "Use 5-second scenes for quick, punchy content"
+        return "Use 6-second scenes with Hailuo for optimal cost and quality"
     elif total_duration <= 60:
-        return "Mix of 5-second and 10-second scenes (start fast, then slow down)"
+        return "Mix of 6-second and 10-second scenes (Hailuo recommended)"
     else:
-        return "Primarily 10-second scenes with some 5-second transitions"
+        return "Primarily 10-second scenes with some 6-second transitions"
 
 
 def _get_platform_specific_tips(platform: str) -> str:
@@ -262,10 +263,10 @@ def _get_platform_specific_tips(platform: str) -> str:
 
 
 def _estimate_total_cost(duration: int) -> float:
-    """Rough cost estimate for a video."""
+    """Rough cost estimate for a video using Hailuo model."""
     scenes = duration // 10 + (1 if duration % 10 >= 5 else 0)
     image_cost = scenes * 0.04
-    video_cost = duration * 0.05
+    video_cost = duration * 0.045  # Hailuo pricing (10% cheaper than Kling)
     audio_cost = 0.10 if duration > 15 else 0  # Assume music for longer videos
     speech_cost = 0.10  # Assume some narration
     
