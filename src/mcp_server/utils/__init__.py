@@ -16,8 +16,8 @@ from .error_helpers import (
 
 from .image_helpers import (
     process_image_input,
-    validate_image_input,
-    file_to_base64_data_uri
+    is_url,
+    is_image_file
 )
 
 __all__ = [
@@ -33,6 +33,6 @@ __all__ = [
     "handle_file_operation_error",
     "validate_project_exists",
     "process_image_input",
-    "validate_image_input",
-    "file_to_base64_data_uri"
+    "is_url",
+    "is_image_file"
 ]
