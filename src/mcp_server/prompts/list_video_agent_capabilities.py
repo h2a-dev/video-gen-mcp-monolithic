@@ -38,6 +38,14 @@ Video creation and manipulation functions:
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
 • **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
+### Batch Generation (Guaranteed Parallel Processing)
+• **generate_video_from_image_batch** (requests) - Generate multiple videos simultaneously
+  - Max 10 videos per batch
+  - Each request contains: image_url, motion_prompt, duration, aspect_ratio, model, etc.
+• **generate_image_from_image_batch** (requests) - Transform multiple images simultaneously
+  - Max 20 images per batch
+  - Each request contains: image_url, prompt, guidance_scale, safety_tolerance, etc.
+
 ### Video Assembly
 • **download_assets** (asset_urls, project_id, asset_type, parallel_downloads) - Download generated assets locally
 • **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes AND mix all audio tracks in one step (call only ONCE)
@@ -127,45 +135,51 @@ assemble_video(project_id)
 export_final_video(project_id, "instagram_reel")
 ```
 
-## 🚀 Delegate Tasks to Claude Code Agent for Maximum Speed
+## 🚀 Batch Generation for Guaranteed Parallel Processing
 
-### IMPORTANT: Generate Multiple Assets Simultaneously
-When creating multiple scenes, delegate ALL video generation tasks to Claude Code agent by making multiple tool calls in a single message:
+### RECOMMENDED: Use Batch Tools for Multiple Assets
+When creating multiple scenes, use the batch generation tools for guaranteed parallel processing:
 
 ```python
-# ✅ CORRECT: Delegate tasks to agent (5x faster!)
-# Call all these in ONE message to delegate tasks to Claude Code agent:
-generate_video_from_image(image1_url, "slow zoom in", duration=5, project_id=pid, scene_id=s1)
-generate_video_from_image(image2_url, "pan left", duration=5, project_id=pid, scene_id=s2)
-generate_video_from_image(image3_url, "zoom out", duration=5, project_id=pid, scene_id=s3)
-generate_video_from_image(image4_url, "tilt up", duration=5, project_id=pid, scene_id=s4)
-generate_video_from_image(image5_url, "fade in", duration=5, project_id=pid, scene_id=s5)
+# ✅ BEST: Use batch tool (guaranteed parallel, 5x faster!)
+generate_video_from_image_batch([
+    {"image_url": image1_url, "motion_prompt": "slow zoom in", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s1},
+    {"image_url": image2_url, "motion_prompt": "pan left", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s2},
+    {"image_url": image3_url, "motion_prompt": "zoom out", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s3},
+    {"image_url": image4_url, "motion_prompt": "tilt up", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s4},
+    {"image_url": image5_url, "motion_prompt": "fade in", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s5}
+])
 
 # ❌ WRONG: Sequential generation (5x slower!)
-# Don't wait for each to complete before starting the next
+# Don't call tools one by one waiting for each to complete
 ```
 
-### Why Delegating Tasks to Agent Works:
-• Claude Code agent handles all tasks simultaneously on FAL's servers
+### Why Batch Generation Works:
+• Processes all requests truly in parallel on FAL's servers
 • 5 scenes complete in the time it takes to generate 1
 • Reduces total wait time from 5+ minutes to ~1-2 minutes
-• Works for images, videos, and audio generation
+• Works for both video and image generation
+• Returns individual success/error status for each item
 
-### Example: Complete Video Project with Task Delegation
+### Example: Complete Video Project with Batch Processing
 ```python
-# Step 1: Delegate all image generation tasks to agent
-generate_image_from_text("scene 1 description", project_id=pid, scene_id=s1)
-generate_image_from_text("scene 2 description", project_id=pid, scene_id=s2)
-generate_image_from_text("scene 3 description", project_id=pid, scene_id=s3)
+# Step 1: Transform reference images in batch (if needed)
+transformed = generate_image_from_image_batch([
+    {"image_url": ref1, "prompt": "add cinematic lighting", "project_id": pid, "scene_id": s1},
+    {"image_url": ref2, "prompt": "enhance colors", "project_id": pid, "scene_id": s2},
+    {"image_url": ref3, "prompt": "add dramatic shadows", "project_id": pid, "scene_id": s3}
+])
 
-# Step 2: After images complete, delegate all video generation tasks to agent
-generate_video_from_image(img1_url, "motion 1", project_id=pid, scene_id=s1)
-generate_video_from_image(img2_url, "motion 2", project_id=pid, scene_id=s2)
-generate_video_from_image(img3_url, "motion 3", project_id=pid, scene_id=s3)
+# Step 2: Generate all videos in one batch call
+videos = generate_video_from_image_batch([
+    {"image_url": img1, "motion_prompt": "slow zoom in", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s1},
+    {"image_url": img2, "motion_prompt": "pan left", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s2},
+    {"image_url": img3, "motion_prompt": "zoom out", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s3}
+])
 
-# Step 3: Delegate audio generation tasks too
+# Step 3: Generate audio (still individual calls for now)
 generate_speech(text1, project_id=pid, scene_id=s1)
-generate_music("background music", project_id=pid)
+generate_music("epic background music", project_id=pid)
 ```
 
 ## 💡 Pro Tips

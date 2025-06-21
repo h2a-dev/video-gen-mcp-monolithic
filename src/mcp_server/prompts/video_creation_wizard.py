@@ -142,25 +142,23 @@ If you have reference images or want to use local files:
 4. **Generate music** that matches the mood
 5. **Assemble** into final video
 
-### 🚀 CRITICAL: Delegate Tasks to Claude Code Agent!
-**Always delegate multiple tasks to Claude Code agent in ONE message for maximum speed:**
+### 🚀 CRITICAL: Use Batch Generation for Guaranteed Parallel Processing!
+**Always use batch tools when generating multiple assets:**
 ```
-# Delegate all image generation tasks to agent (call ALL in ONE message):
-generate_image_from_text("scene 1 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s1)
-generate_image_from_text("scene 2 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s2)
-generate_image_from_text("scene 3 prompt", model="imagen4", aspect_ratio="16:9", project_id=pid, scene_id=s3)
+# BEST PRACTICE: Generate all videos in one batch call
+generate_video_from_image_batch([
+    {"image_url": img1_url, "motion_prompt": "elegant camera movement", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s1},
+    {"image_url": img2_url, "motion_prompt": "smooth transition", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s2},
+    {"image_url": img3_url, "motion_prompt": "dramatic finale", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s3}
+])
 
-# Then delegate all video animation tasks to agent (RECOMMENDED: Hailuo for cost savings):
-generate_video_from_image(img1_url, "elegant camera movement", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s1)
-generate_video_from_image(img2_url, "smooth transition", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s2)
-generate_video_from_image(img3_url, "dramatic finale", duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=s3)
+# Transform multiple images at once
+generate_image_from_image_batch([
+    {"image_url": ref1, "prompt": "add cinematic lighting", "project_id": pid, "scene_id": s1},
+    {"image_url": ref2, "prompt": "enhance dramatic mood", "project_id": pid, "scene_id": s2}
+])
 
-# Alternative: Use Kling if you need 5-second videos:
-generate_video_from_image(img1_url, "slow zoom in", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s1)
-generate_video_from_image(img2_url, "pan left slowly", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s2)
-generate_video_from_image(img3_url, "zoom out reveal", duration=5, aspect_ratio="16:9", motion_strength=0.7, model="kling_2.1", project_id=pid, scene_id=s3)
-
-# Agent handles all tasks simultaneously - 3x faster than sequential!
+# Batch processing guarantees parallel execution - 3x faster than sequential!
 ```
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
