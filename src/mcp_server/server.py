@@ -282,18 +282,17 @@ async def generate_speech(
 async def generate_image_from_image(
     image_url: str,
     prompt: str,
-    guidance_scale: float = 3.5,
     safety_tolerance: int = 5,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Transform an image based on a text prompt using AI.
+    Uses Flux Kontext with fixed guidance scale of 3.5 for optimal results.
     
     Args:
         image_url: Source image - can be a URL or local file path
         prompt: Text description of the transformation to apply
-        guidance_scale: How closely to follow the prompt (1.0-10.0, default 3.5)
         safety_tolerance: Safety filter level (1-6, default 5. 1=strictest, 6=most permissive)
         project_id: Optional project to associate the image with
         scene_id: Optional scene within the project
@@ -303,11 +302,9 @@ async def generate_image_from_image(
     """
     from .tools.generation import generate_image_from_image as impl
     # Convert string parameters to proper types if needed
-    if isinstance(guidance_scale, str):
-        guidance_scale = float(guidance_scale)
     if isinstance(safety_tolerance, str):
         safety_tolerance = int(safety_tolerance)
-    return await impl(image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id)
+    return await impl(image_url, prompt, safety_tolerance, project_id, scene_id)
 
 
 # Batch generation removed - use individual tools in parallel instead
