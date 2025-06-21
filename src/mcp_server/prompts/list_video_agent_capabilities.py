@@ -121,7 +121,7 @@ download_assets([url1, url2, url3], project_id)
 # Generate videos from your images (supports URL or local file)
 generate_video_from_image(your_image_url, "zoom in with dramatic effect", model="kling_2.1")
 # Or from local file (auto-uploads):
-generate_video_from_image("/path/to/local/image.png", "pan left slowly", model="hailuo_02", duration=6)
+generate_video_from_image("/path/to/local/image.png", "pan left slowly", model="kling_2.1", duration=5)
 
 # Transform existing images
 generate_image_from_image("/path/to/image.jpg", "make it more cinematic")
@@ -143,11 +143,11 @@ When creating multiple scenes, make multiple tool calls simultaneously:
 ```python
 # ✅ BEST: Call multiple tools in one message (agent handles parallel execution)
 # Make all these calls at once:
-generate_video_from_image(image1_url, "slow zoom in", duration=6, model="hailuo_02", project_id=pid, scene_id=s1)
-generate_video_from_image(image2_url, "pan left", duration=6, model="hailuo_02", project_id=pid, scene_id=s2)
-generate_video_from_image(image3_url, "zoom out", duration=6, model="hailuo_02", project_id=pid, scene_id=s3)
-generate_video_from_image(image4_url, "tilt up", duration=6, model="hailuo_02", project_id=pid, scene_id=s4)
-generate_video_from_image(image5_url, "fade in", duration=6, model="hailuo_02", project_id=pid, scene_id=s5)
+generate_video_from_image(image1_url, "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=s1)
+generate_video_from_image(image2_url, "pan left", duration=5, model="kling_2.1", project_id=pid, scene_id=s2)
+generate_video_from_image(image3_url, "zoom out", duration=5, model="kling_2.1", project_id=pid, scene_id=s3)
+generate_video_from_image(image4_url, "tilt up", duration=5, model="kling_2.1", project_id=pid, scene_id=s4)
+generate_video_from_image(image5_url, "fade in", duration=5, model="kling_2.1", project_id=pid, scene_id=s5)
 
 # ❌ WRONG: Sequential generation (slower!)
 # Don't call tools one by one waiting for each to complete
@@ -168,9 +168,9 @@ generate_image_from_image(ref2, "enhance colors", project_id=pid, scene_id=s2)
 generate_image_from_image(ref3, "add dramatic shadows", project_id=pid, scene_id=s3)
 
 # Step 2: Generate all videos - call all at once
-generate_video_from_image(img1, "slow zoom in", duration=6, model="hailuo_02", project_id=pid, scene_id=s1)
-generate_video_from_image(img2, "pan left", duration=6, model="hailuo_02", project_id=pid, scene_id=s2)
-generate_video_from_image(img3, "zoom out", duration=6, model="hailuo_02", project_id=pid, scene_id=s3)
+generate_video_from_image(img1, "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=s1)
+generate_video_from_image(img2, "pan left", duration=5, model="kling_2.1", project_id=pid, scene_id=s2)
+generate_video_from_image(img3, "zoom out", duration=5, model="kling_2.1", project_id=pid, scene_id=s3)
 
 # Step 3: Generate audio
 generate_speech(text1, project_id=pid, scene_id=s1)

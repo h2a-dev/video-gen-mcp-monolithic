@@ -91,10 +91,10 @@ Based on {recommended_duration} seconds, I recommend:
    
 4. **Animate images** with motion that complements the audio
    ```
-   generate_video_from_image(image_url, motion_prompt, duration=6, aspect_ratio="16:9", model="hailuo_02", project_id=pid, scene_id=sid)
+   generate_video_from_image(image_url, motion_prompt, duration=5, aspect_ratio="16:9", model="kling_2.1", project_id=pid, scene_id=sid)
    ```
-   - Duration: 6 or 10 seconds for Hailuo (RECOMMENDED), 5 or 10 for Kling
-   - Model: "hailuo_02" (RECOMMENDED - 10% cheaper!) or "kling_2.1"
+   - Duration: 5 or 10 seconds for Kling (default), 6 or 10 for Hailuo
+   - Model: "kling_2.1" (default, reliable) or "hailuo_02" (10% cheaper)
    - Prompt optimizer: True by default (Hailuo only, improves results)
    - Motion strength: 0.1-1.0 (Kling only)
    
@@ -211,11 +211,11 @@ Just say "Let's start!" and I'll create your project and guide you through each 
 def _get_scene_duration_recommendation(total_duration: int) -> str:
     """Get scene duration mix recommendation."""
     if total_duration <= 30:
-        return "Use 6-second scenes with Hailuo for optimal cost and quality"
+        return "Use 5-second scenes with Kling for reliable results"
     elif total_duration <= 60:
-        return "Mix of 6-second and 10-second scenes (Hailuo recommended)"
+        return "Mix of 5-second and 10-second scenes"
     else:
-        return "Primarily 10-second scenes with some 6-second transitions"
+        return "Primarily 10-second scenes with some 5-second transitions"
 
 
 def _get_platform_specific_tips(platform: str) -> str:
@@ -262,7 +262,7 @@ def _estimate_total_cost(duration: int) -> float:
     """Rough cost estimate for a video using Hailuo model."""
     scenes = duration // 10 + (1 if duration % 10 >= 5 else 0)
     image_cost = scenes * 0.04
-    video_cost = duration * 0.045  # Hailuo pricing (10% cheaper than Kling)
+    video_cost = duration * 0.05  # Default Kling pricing
     audio_cost = 0.10 if duration > 15 else 0  # Assume music for longer videos
     speech_cost = 0.10  # Assume some narration
     
