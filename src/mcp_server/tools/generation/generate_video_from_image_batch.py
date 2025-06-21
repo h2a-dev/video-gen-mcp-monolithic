@@ -1,6 +1,7 @@
 """Batch generate videos from images tool implementation."""
 
 import asyncio
+import time
 from typing import Dict, Any, List, Optional
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
@@ -25,8 +26,10 @@ VALID_ASPECT_RATIOS = {
 }
 
 
-async def process_single_video(request: Dict[str, Any], index: int) -> Dict[str, Any]:
-    """Process a single video generation request."""
+async def process_single_video(request: Dict[str, Any], index: int, retry_count: int = 0) -> Dict[str, Any]:
+    """Process a single video generation request with timeout handling."""
+    start_time = time.time()
+    
     try:
         # Extract parameters with defaults
         image_url = request.get("image_url")
@@ -123,14 +126,43 @@ async def process_single_video(request: Dict[str, Any], index: int) -> Dict[str,
         else:  # hailuo_02
             kwargs["prompt_optimizer"] = prompt_optimizer
         
-        result = await fal_service.generate_video_from_image(**kwargs)
+        # Determine timeout based on duration
+        # 10-second videos need more time
+        timeout_seconds = 180 if duration == 10 else 120
+        
+        print(f"[Batch {index}] Starting video generation for {duration}s video with {timeout_seconds}s timeout")
+        
+        # Generate the video with timeout
+        try:
+            result = await asyncio.wait_for(
+                fal_service.generate_video_from_image(**kwargs),
+                timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            elapsed = time.time() - start_time
+            error_msg = f"Video generation timed out after {elapsed:.1f}s (timeout: {timeout_seconds}s)"
+            print(f"[Batch {index}] {error_msg}")
+            
+            # Retry once for timeouts
+            if retry_count < 1:
+                print(f"[Batch {index}] Retrying video generation...")
+                return await process_single_video(request, index, retry_count + 1)
+            
+            return {
+                "success": False,
+                "index": index,
+                "error": error_msg,
+                "request": request,
+                "elapsed_time": elapsed
+            }
         
         if not result["success"]:
             return {
                 "success": False,
                 "index": index,
                 "error": result.get("error", "Generation failed"),
-                "request": request
+                "request": request,
+                "elapsed_time": time.time() - start_time
             }
         
         # Calculate cost
@@ -194,6 +226,9 @@ async def process_single_video(request: Dict[str, Any], index: int) -> Dict[str,
                         local_path = download_result["local_path"]
                         asset.local_path = local_path
         
+        elapsed = time.time() - start_time
+        print(f"[Batch {index}] Video generation completed in {elapsed:.1f}s")
+        
         return {
             "success": True,
             "index": index,
@@ -211,7 +246,8 @@ async def process_single_video(request: Dict[str, Any], index: int) -> Dict[str,
                 "duration": duration,
                 "aspect_ratio": aspect_ratio,
                 "source_image": image_url
-            }
+            },
+            "elapsed_time": elapsed
         }
         
     except Exception as e:
@@ -264,13 +300,45 @@ async def generate_video_from_image_batch(
                 example="Process in batches of 10 or fewer videos"
             )
         
-        # Process all videos in parallel
-        tasks = [
-            process_single_video(request, index)
-            for index, request in enumerate(requests)
-        ]
+        print(f"Starting batch video generation for {len(requests)} videos")
         
-        results = await asyncio.gather(*tasks)
+        # Process videos in smaller groups to avoid overwhelming the API
+        batch_size = 3  # Process 3 videos at a time
+        all_results = []
+        
+        for i in range(0, len(requests), batch_size):
+            batch_end = min(i + batch_size, len(requests))
+            batch = requests[i:batch_end]
+            
+            print(f"Processing batch {i//batch_size + 1}/{(len(requests) + batch_size - 1)//batch_size} (videos {i}-{batch_end-1})")
+            
+            # Create tasks for this batch
+            tasks = [
+                process_single_video(request, index)
+                for index, request in enumerate(batch, start=i)
+            ]
+            
+            # Process this batch
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Handle any exceptions
+            for j, result in enumerate(batch_results):
+                if isinstance(result, Exception):
+                    all_results.append({
+                        "success": False,
+                        "index": i + j,
+                        "error": str(result),
+                        "request": requests[i + j]
+                    })
+                else:
+                    all_results.append(result)
+            
+            # Small delay between batches to avoid rate limiting
+            if batch_end < len(requests):
+                print("Waiting 2 seconds before next batch...")
+                await asyncio.sleep(2)
+        
+        results = all_results
         
         # Aggregate results
         successful = [r for r in results if r["success"]]

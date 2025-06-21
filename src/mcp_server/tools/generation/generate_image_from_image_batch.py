@@ -1,6 +1,7 @@
 """Batch generate images from images tool implementation."""
 
 import asyncio
+import time
 from typing import Dict, Any, List, Optional
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
@@ -15,8 +16,10 @@ from ...utils import (
 )
 
 
-async def process_single_image(request: Dict[str, Any], index: int) -> Dict[str, Any]:
-    """Process a single image transformation request."""
+async def process_single_image(request: Dict[str, Any], index: int, retry_count: int = 0) -> Dict[str, Any]:
+    """Process a single image transformation request with timeout handling."""
+    start_time = time.time()
+    
     try:
         # Extract parameters with defaults
         image_url = request.get("image_url")
@@ -73,21 +76,47 @@ async def process_single_image(request: Dict[str, Any], index: int) -> Dict[str,
                 "request": request
             }
         
-        # Generate the transformed image
-        result = await fal_service.generate_image_from_image(
-            image_url=processed_image_url,
-            prompt=prompt,
-            model="flux_kontext",
-            guidance_scale=guidance_scale,
-            safety_tolerance=str(safety_tolerance)
-        )
+        # Generate the transformed image with timeout
+        timeout_seconds = 60  # Image transformations are typically faster
+        
+        print(f"[Batch {index}] Starting image transformation with {timeout_seconds}s timeout")
+        
+        try:
+            result = await asyncio.wait_for(
+                fal_service.generate_image_from_image(
+                    image_url=processed_image_url,
+                    prompt=prompt,
+                    model="flux_kontext",
+                    guidance_scale=guidance_scale,
+                    safety_tolerance=str(safety_tolerance)
+                ),
+                timeout=timeout_seconds
+            )
+        except asyncio.TimeoutError:
+            elapsed = time.time() - start_time
+            error_msg = f"Image transformation timed out after {elapsed:.1f}s (timeout: {timeout_seconds}s)"
+            print(f"[Batch {index}] {error_msg}")
+            
+            # Retry once for timeouts
+            if retry_count < 1:
+                print(f"[Batch {index}] Retrying image transformation...")
+                return await process_single_image(request, index, retry_count + 1)
+            
+            return {
+                "success": False,
+                "index": index,
+                "error": error_msg,
+                "request": request,
+                "elapsed_time": elapsed
+            }
         
         if not result["success"]:
             return {
                 "success": False,
                 "index": index,
                 "error": result.get("error", "Generation failed"),
-                "request": request
+                "request": request,
+                "elapsed_time": time.time() - start_time
             }
         
         # Calculate cost
@@ -138,6 +167,9 @@ async def process_single_image(request: Dict[str, Any], index: int) -> Dict[str,
                         local_path = download_result["local_path"]
                         asset.local_path = local_path
         
+        elapsed = time.time() - start_time
+        print(f"[Batch {index}] Image transformation completed in {elapsed:.1f}s")
+        
         return {
             "success": True,
             "index": index,
@@ -154,7 +186,8 @@ async def process_single_image(request: Dict[str, Any], index: int) -> Dict[str,
                 "prompt": prompt,
                 "guidance_scale": guidance_scale,
                 "safety_tolerance": safety_tolerance
-            }
+            },
+            "elapsed_time": elapsed
         }
         
     except Exception as e:
@@ -204,13 +237,45 @@ async def generate_image_from_image_batch(
                 example="Process in batches of 20 or fewer images"
             )
         
-        # Process all images in parallel
-        tasks = [
-            process_single_image(request, index)
-            for index, request in enumerate(requests)
-        ]
+        print(f"Starting batch image transformation for {len(requests)} images")
         
-        results = await asyncio.gather(*tasks)
+        # Process images in smaller groups to avoid overwhelming the API
+        batch_size = 5  # Process 5 images at a time
+        all_results = []
+        
+        for i in range(0, len(requests), batch_size):
+            batch_end = min(i + batch_size, len(requests))
+            batch = requests[i:batch_end]
+            
+            print(f"Processing batch {i//batch_size + 1}/{(len(requests) + batch_size - 1)//batch_size} (images {i}-{batch_end-1})")
+            
+            # Create tasks for this batch
+            tasks = [
+                process_single_image(request, index)
+                for index, request in enumerate(batch, start=i)
+            ]
+            
+            # Process this batch
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Handle any exceptions
+            for j, result in enumerate(batch_results):
+                if isinstance(result, Exception):
+                    all_results.append({
+                        "success": False,
+                        "index": i + j,
+                        "error": str(result),
+                        "request": requests[i + j]
+                    })
+                else:
+                    all_results.append(result)
+            
+            # Small delay between batches to avoid rate limiting
+            if batch_end < len(requests):
+                print("Waiting 1 second before next batch...")
+                await asyncio.sleep(1)
+        
+        results = all_results
         
         # Aggregate results
         successful = [r for r in results if r["success"]]
