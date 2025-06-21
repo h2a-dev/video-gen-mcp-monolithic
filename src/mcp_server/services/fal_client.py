@@ -275,47 +275,28 @@ class FALClient:
         
         for attempt in range(self.max_retries):
             try:
-                # Submit job to queue
-                handler = await fal_client.submit_async(
-                    model_id,
-                    arguments=arguments
-                )
-                
-                request_id = handler.request_id
-                print(f"Job submitted to queue. Request ID: {request_id}")
-                
-                # Poll for status
-                poll_interval = 15  # seconds
-                max_polls = int(self.timeout / poll_interval)
-                
-                for poll_count in range(max_polls):
-                    # Check status
-                    status = await fal_client.status_async(model_id, request_id, with_logs=True)
+                # Use subscribe method for simpler queue handling
+                def on_queue_update(update):
+                    # Log the update type for debugging
+                    print(f"Queue update: {type(update)}")
                     
-                    # Check if completed
-                    if hasattr(status, 'status'):
-                        if status.status == 'COMPLETED':
-                            # Get the result
-                            result = await fal_client.result_async(model_id, request_id)
-                            return result
-                        elif status.status == 'FAILED':
-                            raise RuntimeError(f"Job failed: {getattr(status, 'error', 'Unknown error')}")
-                    
-                    # Progress callback if provided
-                    if progress_callback and hasattr(status, 'progress'):
-                        progress_callback(status.progress)
-                    
-                    # Log progress
-                    if hasattr(status, 'logs') and status.logs:
-                        for log in status.logs:
+                    # Try to access logs if available
+                    if hasattr(update, 'logs') and update.logs:
+                        for log in update.logs:
                             if isinstance(log, dict) and 'message' in log:
                                 print(f"[FAL] {log['message']}")
-                    
-                    print(f"Generation in progress... waiting {poll_interval} seconds before next check")
-                    await asyncio.sleep(poll_interval)
+                            elif isinstance(log, str):
+                                print(f"[FAL] {log}")
                 
-                # Timeout reached
-                raise asyncio.TimeoutError(f"Job timed out after {self.timeout} seconds")
+                print(f"Submitting job to queue for model: {model_id}")
+                result = await fal_client.subscribe_async(
+                    model_id,
+                    arguments=arguments,
+                    on_queue_update=on_queue_update,
+                )
+                
+                print(f"Job completed successfully!")
+                return result
                     
             except asyncio.TimeoutError:
                 last_error = f"Request timed out after {self.timeout} seconds"
