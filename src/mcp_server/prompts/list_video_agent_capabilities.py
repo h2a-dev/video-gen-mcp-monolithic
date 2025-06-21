@@ -227,43 +227,51 @@ generate_music("epic background music", project_id=pid)
 
 ## 🎨 Reference Image Workflows
 
-### When User Provides a Reference Image (URL or Local File)
-Local files are automatically uploaded - no manual upload needed!
+### 🔴 CRITICAL: Character Consistency Rule
+**When user provides a reference image containing a CHARACTER:**
+1. **ANALYZE the reference first** to identify the character/subject
+2. **USE generate_image_from_image for ALL scenes** with that character
+3. **NEVER switch to generate_image_from_text** for the same character
 
-1. **For Local Files** - Just use the path directly:
 ```python
-# User provides: "/home/user/photos/product.jpg"
-# ✅ CORRECT: Direct use of local file (auto-uploaded!)
-generate_image_from_image(
-    "/home/user/photos/product.jpg",  # Automatically uploaded
-    "professional product shot with clean background",
-    guidance_scale=4.0,
-    safety_tolerance=5  # Default 5 for more creative freedom
-)
+# Example: User provides "/home/user/kevin.png" (Kevin from Home Alone)
+# First, understand what's in the image
+image_content = "Young boy with blonde hair in winter clothing"
 
-# ❌ WRONG: Manual upload not needed
-url = upload_image_file("/home/user/photos/product.jpg")
-generate_image_from_image(url, "enhance lighting")
+# ✅ CORRECT: Use reference for ALL Kevin scenes
+generate_image_from_image("/home/user/kevin.png", "Kevin sledding down hill", project_id=pid, scene_id=s1)
+generate_image_from_image("/home/user/kevin.png", "Kevin looking shocked", project_id=pid, scene_id=s2)
+generate_image_from_image("/home/user/kevin.png", "Kevin with paint cans", project_id=pid, scene_id=s3)
+
+# ❌ WRONG: Switching to text generation loses character consistency
+generate_image_from_image("/home/user/kevin.png", "Kevin standing", ...)
+generate_image_from_text("young boy with sled in snow", ...)  # NO! This loses the character!
+```
+
+### Technical Details for Reference Images
+
+1. **For Local Files** - Auto-uploaded, use path directly:
+```python
+generate_image_from_image(
+    "/home/user/photos/character.jpg",  # Automatically uploaded
+    "character in new scene with dramatic lighting",
+    safety_tolerance=5  # Default 5 for creative freedom
+)  # guidance_scale is fixed at 3.5
 ```
 
 2. **For URLs** - Use directly:
 ```python
-# User provides: "https://example.com/product.jpg"
 generate_image_from_image(
-    "https://example.com/product.jpg", 
-    "product on white background with soft shadows",
+    "https://example.com/character.jpg", 
+    "character in action pose with explosions",
     safety_tolerance=5
-)  # Note: guidance_scale is fixed at 3.5 for optimal results
+)
 ```
 
-3. **DO NOT use text-to-image** when reference is provided:
-```python
-# ❌ WRONG: Ignoring the reference
-generate_image_from_text("product photo")  
-
-# ✅ CORRECT: Using the reference (local or URL)
-generate_image_from_image(user_provided_image, "product from different angle")
-```
+3. **Character vs Non-Character References**:
+- **Character/Person**: MUST use for all scenes with that character
+- **Object/Product**: Can mix with text generation for variety
+- **Style Reference**: Can use selectively for specific scenes
 
 ## 🎯 Common Workflows
 

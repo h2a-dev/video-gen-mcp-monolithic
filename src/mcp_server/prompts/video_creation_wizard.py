@@ -60,6 +60,11 @@ Based on {recommended_duration} seconds, I recommend:
 - **Number of Scenes**: {recommended_duration // 10 + (1 if recommended_duration % 10 >= 5 else 0)}
 - **Scene Duration Mix**: {_get_scene_duration_recommendation(recommended_duration)}
 
+🔍 **If user provides a reference image**: 
+- First use Read tool to analyze and understand the image content
+- Identify if it contains a character, object, or style reference
+- Plan to use generate_image_from_image for ALL scenes with that character
+
 ### Step 4: Asset Generation Strategy
 
 #### For Videos WITH Voiceover (Recommended Workflow):
@@ -104,25 +109,30 @@ Based on {recommended_duration} seconds, I recommend:
 3. Add music as the primary audio
 
 #### Working with Existing Images:
-If you have reference images or want to use local files:
+🔴 **CRITICAL RULE**: If the user provides a reference image with a character, you MUST:
+1. **First analyze the reference image** to understand what character/subject it contains
+2. **Use generate_image_from_image for ALL scenes** where that character appears
+3. **NEVER switch to generate_image_from_text** for scenes with the same character
+
+Example workflow when user provides character reference:
+```
+# User provides: "/path/to/kevin.png" (Kevin from Home Alone)
+# ✅ CORRECT: Use for ALL Kevin scenes
+generate_image_from_image("/path/to/kevin.png", "Kevin with sled in snow", project_id=pid, scene_id=s1)
+generate_image_from_image("/path/to/kevin.png", "Kevin looking surprised", project_id=pid, scene_id=s2)
+generate_image_from_image("/path/to/kevin.png", "Kevin setting up traps", project_id=pid, scene_id=s3)
+
+# ❌ WRONG: Switching to text generation for same character
+generate_image_from_image("/path/to/kevin.png", "Kevin standing", ...)
+generate_image_from_text("Kevin with sled", ...)  # NO! Use the reference!
+```
+
+Technical details:
 1. **Local files are auto-uploaded**: Just provide the path
-   ```
-   # Recommended: Use Hailuo for 10% savings and better prompts:
-   generate_video_from_image("/path/to/image.jpg", "dramatic reveal", duration=6, model="hailuo_02", project_id=pid, scene_id=sid)
-   # Alternative: Kling for 5-second videos:
-   generate_video_from_image("/path/to/image.jpg", "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=sid)
-   ```
 2. **Transform existing images**: Use generate_image_from_image
-   ```
-   generate_image_from_image("/path/to/image.jpg", "add cinematic lighting", safety_tolerance=5, project_id=pid, scene_id=sid)
-   ```
-   - Guidance scale: Fixed at 3.5 for optimal results (not configurable)
-   - Safety tolerance: 1-6 (1=strictest, 6=most permissive, default 5)
+   - Guidance scale: Fixed at 3.5 for optimal results
+   - Safety tolerance: 1-6 (default 5)
 3. **URLs work directly**: No upload needed for web images
-4. **Upload files explicitly** if needed:
-   ```
-   upload_image_file("/path/to/image.jpg")  # Returns URL for use in other tools
-   ```
 
 ### Step 5: Production Workflow
 
