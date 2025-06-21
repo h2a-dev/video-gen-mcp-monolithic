@@ -113,18 +113,19 @@ Based on {recommended_duration} seconds, I recommend:
 1. **First analyze the reference image** to understand what character/subject it contains
 2. **Use generate_image_from_image for ALL scenes** where that character appears
 3. **NEVER switch to generate_image_from_text** for scenes with the same character
+4. **ALWAYS refer to the subject as "character"** in prompts - avoid names, pronouns (he/she), or specific identifiers
 
 Example workflow when user provides character reference:
 ```
-# User provides: "/path/to/kevin.png" (Kevin from Home Alone)
-# ✅ CORRECT: Use for ALL Kevin scenes
-generate_image_from_image("/path/to/kevin.png", "Kevin with sled in snow", project_id=pid, scene_id=s1)
-generate_image_from_image("/path/to/kevin.png", "Kevin looking surprised", project_id=pid, scene_id=s2)
-generate_image_from_image("/path/to/kevin.png", "Kevin setting up traps", project_id=pid, scene_id=s3)
+# User provides: "/path/to/character.png" (e.g., a specific person/character)
+# ✅ CORRECT: Use for ALL scenes with this character
+generate_image_from_image("/path/to/character.png", "character with sled in snow", project_id=pid, scene_id=s1)
+generate_image_from_image("/path/to/character.png", "character looking surprised", project_id=pid, scene_id=s2)
+generate_image_from_image("/path/to/character.png", "character setting up traps", project_id=pid, scene_id=s3)
 
 # ❌ WRONG: Switching to text generation for same character
-generate_image_from_image("/path/to/kevin.png", "Kevin standing", ...)
-generate_image_from_text("Kevin with sled", ...)  # NO! Use the reference!
+generate_image_from_image("/path/to/character.png", "character standing", ...)
+generate_image_from_text("person with sled", ...)  # NO! Use the reference!
 ```
 
 Technical details:

@@ -192,20 +192,21 @@ assemble_video(project_id)
 1. **ANALYZE the reference first** to identify the character/subject
 2. **USE generate_image_from_image for ALL scenes** with that character
 3. **NEVER switch to generate_image_from_text** for the same character
+4. **ALWAYS refer to the subject as "character"** in prompts - avoid names, pronouns (he/she), or specific identifiers
 
 ```python
-# Example: User provides "/home/user/kevin.png" (Kevin from Home Alone)
+# Example: User provides "/home/user/character.png" (e.g., a specific person/character)
 # First, understand what's in the image
-image_content = "Young boy with blonde hair in winter clothing"
+image_content = "Character with specific features in winter clothing"
 
-# ✅ CORRECT: Use reference for ALL Kevin scenes
-generate_image_from_image("/home/user/kevin.png", "Kevin sledding down hill", project_id=pid, scene_id=s1)
-generate_image_from_image("/home/user/kevin.png", "Kevin looking shocked", project_id=pid, scene_id=s2)
-generate_image_from_image("/home/user/kevin.png", "Kevin with paint cans", project_id=pid, scene_id=s3)
+# ✅ CORRECT: Use reference for ALL scenes with this character
+generate_image_from_image("/home/user/character.png", "character sledding down hill", project_id=pid, scene_id=s1)
+generate_image_from_image("/home/user/character.png", "character looking shocked", project_id=pid, scene_id=s2)
+generate_image_from_image("/home/user/character.png", "character with paint cans", project_id=pid, scene_id=s3)
 
 # ❌ WRONG: Switching to text generation loses character consistency
-generate_image_from_image("/home/user/kevin.png", "Kevin standing", ...)
-generate_image_from_text("young boy with sled in snow", ...)  # NO! This loses the character!
+generate_image_from_image("/home/user/character.png", "character standing", ...)
+generate_image_from_text("person with sled in snow", ...)  # NO! This loses the character!
 ```
 
 ### Technical Details for Reference Images
