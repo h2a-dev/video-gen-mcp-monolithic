@@ -114,9 +114,9 @@ If you have reference images or want to use local files:
    ```
 2. **Transform existing images**: Use generate_image_from_image
    ```
-   generate_image_from_image("/path/to/image.jpg", "add cinematic lighting", guidance_scale=3.5, safety_tolerance=5, project_id=pid, scene_id=sid)
+   generate_image_from_image("/path/to/image.jpg", "add cinematic lighting", safety_tolerance=5, project_id=pid, scene_id=sid)
    ```
-   - Guidance scale: 1.0-10.0 (how closely to follow prompt, default 3.5)
+   - Guidance scale: Fixed at 3.5 for optimal results (not configurable)
    - Safety tolerance: 1-6 (1=strictest, 6=most permissive, default 5)
 3. **URLs work directly**: No upload needed for web images
 4. **Upload files explicitly** if needed:

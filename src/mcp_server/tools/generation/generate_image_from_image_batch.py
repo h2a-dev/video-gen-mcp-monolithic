@@ -87,7 +87,7 @@ async def process_single_image(request: Dict[str, Any], index: int, retry_count:
                     image_url=processed_image_url,
                     prompt=prompt,
                     model="flux_kontext",
-                    guidance_scale=guidance_scale,
+                    guidance_scale=3.5,  # Always use 3.5 for optimal results
                     safety_tolerance=str(safety_tolerance)
                 ),
                 timeout=timeout_seconds
@@ -132,14 +132,14 @@ async def process_single_image(request: Dict[str, Any], index: int, retry_count:
                 "model": "flux_kontext",
                 "source_image": image_url,
                 "prompt": prompt,
-                "guidance_scale": guidance_scale,
+                "guidance_scale": 3.5,
                 "safety_tolerance": safety_tolerance,
                 "batch_index": index
             },
             generation_params={
                 "image_url": processed_image_url,
                 "prompt": prompt,
-                "guidance_scale": guidance_scale,
+                "guidance_scale": 3.5,
                 "safety_tolerance": str(safety_tolerance)
             }
         )
@@ -184,7 +184,7 @@ async def process_single_image(request: Dict[str, Any], index: int, retry_count:
                 "model": "flux_kontext",
                 "source_image": image_url,
                 "prompt": prompt,
-                "guidance_scale": guidance_scale,
+                "guidance_scale": 3.5,
                 "safety_tolerance": safety_tolerance
             },
             "elapsed_time": elapsed

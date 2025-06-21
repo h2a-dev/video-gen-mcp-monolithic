@@ -63,13 +63,13 @@ class FALClient:
         image_url: str,
         prompt: str,
         model: str = "flux_kontext",
-        guidance_scale: float = 3.5,
+        guidance_scale: float = 3.5,  # Fixed at 3.5 for optimal results
         safety_tolerance: str = "5",
         **kwargs
     ) -> Dict[str, Any]:
-        """Transform image based on prompt."""
+        """Transform image based on prompt. Guidance scale is fixed at 3.5."""
         try:
-            result = await self._run_flux_kontext(image_url, prompt, guidance_scale, safety_tolerance, **kwargs)
+            result = await self._run_flux_kontext(image_url, prompt, 3.5, safety_tolerance, **kwargs)
             
             return {
                 "success": True,
@@ -220,7 +220,7 @@ class FALClient:
             arguments={
                 "prompt": prompt,
                 "image_url": image_url,
-                "guidance_scale": guidance_scale,
+                "guidance_scale": 3.5,  # Always use 3.5 for optimal results
                 "safety_tolerance": safety_tolerance,
                 **kwargs
             }

@@ -252,9 +252,8 @@ generate_image_from_image(url, "enhance lighting")
 generate_image_from_image(
     "https://example.com/product.jpg", 
     "product on white background with soft shadows",
-    guidance_scale=3.5,
     safety_tolerance=5
-)
+)  # Note: guidance_scale is fixed at 3.5 for optimal results
 ```
 
 3. **DO NOT use text-to-image** when reference is provided:

@@ -17,13 +17,13 @@ from ...utils import (
 async def generate_image_from_image(
     image_url: str,
     prompt: str,
-    guidance_scale: float = 3.5,
     safety_tolerance: int = 5,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Transform an image based on a text prompt using AI.
+    Uses Flux Kontext with fixed guidance scale of 3.5 for optimal results.
     
     Args:
         image_url: Source image - can be a URL or local file path
@@ -55,13 +55,8 @@ async def generate_image_from_image(
                 example="prompt='Make it more vibrant and colorful'"
             )
         
-        # Validate guidance scale
-        scale_validation = validate_range(
-            guidance_scale, "guidance_scale", 1.0, 10.0, "Guidance scale"
-        )
-        if not scale_validation["valid"]:
-            return scale_validation["error_response"]
-        guidance_scale = scale_validation["value"]
+        # Fixed guidance scale for optimal results
+        guidance_scale = 3.5
         
         # Validate safety tolerance
         safety_validation = validate_range(
