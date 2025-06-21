@@ -98,9 +98,8 @@ creating a project and planning the scenes...
 - `generate_music` - Create background music from text descriptions
 - `generate_speech` - Generate voiceovers with multiple voice options
 
-### Batch Generation (Parallel Processing)
-- `generate_video_from_image_batch` - Generate multiple videos simultaneously (up to 10)
-- `generate_image_from_image_batch` - Transform multiple images simultaneously (up to 20)
+### Parallel Processing
+For multiple generations, call tools in parallel rather than sequentially. The agent will handle concurrent requests efficiently.
 
 ### Video Assembly
 - `download_assets` - Download generated assets from FAL or other sources

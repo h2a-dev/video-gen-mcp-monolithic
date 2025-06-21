@@ -152,23 +152,11 @@ Technical details:
 4. **Generate music** that matches the mood
 5. **Assemble** into final video
 
-### 🚀 CRITICAL: Use Batch Generation for Guaranteed Parallel Processing!
-**Always use batch tools when generating multiple assets:**
+### 🚀 Parallel Generation Tips
+**Call tools in parallel for multiple assets:**
 ```
-# BEST PRACTICE: Generate all videos in one batch call
-generate_video_from_image_batch([
-    {"image_url": img1_url, "motion_prompt": "elegant camera movement", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s1},
-    {"image_url": img2_url, "motion_prompt": "smooth transition", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s2},
-    {"image_url": img3_url, "motion_prompt": "dramatic finale", "duration": 6, "model": "hailuo_02", "project_id": pid, "scene_id": s3}
-])
-
-# Transform multiple images at once
-generate_image_from_image_batch([
-    {"image_url": ref1, "prompt": "add cinematic lighting", "project_id": pid, "scene_id": s1},
-    {"image_url": ref2, "prompt": "enhance dramatic mood", "project_id": pid, "scene_id": s2}
-])
-
-# Batch processing guarantees parallel execution - 3x faster than sequential!
+# Call multiple tools simultaneously (not sequentially)
+# The agent will handle concurrent requests efficiently
 ```
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}

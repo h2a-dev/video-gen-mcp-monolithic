@@ -310,53 +310,7 @@ async def generate_image_from_image(
     return await impl(image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id)
 
 
-@mcp.tool()
-async def generate_video_from_image_batch(
-    requests: List[Dict[str, Any]]
-) -> Dict[str, Any]:
-    """
-    Generate multiple videos from images in parallel.
-    
-    Args:
-        requests: List of video generation requests, each containing:
-            - image_url: Source image URL or path (required)
-            - motion_prompt: Motion description (required)
-            - duration: Video duration (default: 6)
-            - aspect_ratio: Video aspect ratio (default: "16:9")
-            - motion_strength: Motion intensity for Kling (default: 0.7)
-            - model: Video model (default: from settings)
-            - prompt_optimizer: For Hailuo model (default: True)
-            - project_id: Optional project ID
-            - scene_id: Optional scene ID
-    
-    Returns:
-        Dict with results for all videos
-    """
-    from .tools.generation import generate_video_from_image_batch as impl
-    return await impl(requests)
-
-
-@mcp.tool()
-async def generate_image_from_image_batch(
-    requests: List[Dict[str, Any]]
-) -> Dict[str, Any]:
-    """
-    Transform multiple images in parallel using AI.
-    
-    Args:
-        requests: List of image transformation requests, each containing:
-            - image_url: Source image URL or path (required)
-            - prompt: Transformation description (required)
-            - guidance_scale: How closely to follow prompt (default: 3.5)
-            - safety_tolerance: Safety filter level (default: 5)
-            - project_id: Optional project ID
-            - scene_id: Optional scene ID
-    
-    Returns:
-        Dict with results for all images
-    """
-    from .tools.generation import generate_image_from_image_batch as impl
-    return await impl(requests)
+# Batch generation removed - use individual tools in parallel instead
 
 
 # ============================================================================
