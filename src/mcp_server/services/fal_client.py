@@ -64,7 +64,7 @@ class FALClient:
         prompt: str,
         model: str = "flux_kontext",
         guidance_scale: float = 3.5,  # Fixed at 3.5 for optimal results
-        safety_tolerance: str = "5",
+        safety_tolerance: str = "3",
         **kwargs
     ) -> Dict[str, Any]:
         """Transform image based on prompt. Guidance scale is fixed at 3.5."""

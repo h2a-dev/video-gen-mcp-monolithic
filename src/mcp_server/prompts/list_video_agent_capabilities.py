@@ -29,7 +29,7 @@ Video creation and manipulation functions:
 • **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
 • **generate_image_from_image** (image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id) - Transform images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
-  - Safety tolerance: 1-6 (default 5, higher = more permissive)
+  - Safety tolerance: 1-6 (default 3, higher = more permissive)
 • **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, model, prompt_optimizer, project_id, scene_id) - Animate still images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
   - Models: "kling_2.1" (5 or 10 sec) or "hailuo_02" (6 or 10 sec)
@@ -215,7 +215,7 @@ generate_image_from_text("young boy with sled in snow", ...)  # NO! This loses t
 generate_image_from_image(
     "/home/user/photos/character.jpg",  # Automatically uploaded
     "character in new scene with dramatic lighting",
-    safety_tolerance=5  # Default 5 for creative freedom
+    safety_tolerance=3  # Default 3 for balanced safety
 )  # guidance_scale is fixed at 3.5
 ```
 
@@ -224,7 +224,7 @@ generate_image_from_image(
 generate_image_from_image(
     "https://example.com/character.jpg", 
     "character in action pose with explosions",
-    safety_tolerance=5
+    safety_tolerance=3
 )
 ```
 

@@ -282,7 +282,7 @@ async def generate_speech(
 async def generate_image_from_image(
     image_url: str,
     prompt: str,
-    safety_tolerance: int = 5,
+    safety_tolerance: int = 3,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -293,7 +293,7 @@ async def generate_image_from_image(
     Args:
         image_url: Source image - can be a URL or local file path
         prompt: Text description of the transformation to apply
-        safety_tolerance: Safety filter level (1-6, default 5. 1=strictest, 6=most permissive)
+        safety_tolerance: Safety filter level (1-6, default 3. 1=strictest, 6=most permissive)
         project_id: Optional project to associate the image with
         scene_id: Optional scene within the project
         
