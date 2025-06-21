@@ -147,17 +147,17 @@ Technical details:
 
 #### Visual-First Workflow (for non-narrated videos):
 1. **Create scenes** with visual descriptions
-2. **Delegate ALL image generation tasks to agent** (generate in one message!)
-3. **Delegate ALL video animation tasks to agent** (5x faster!)
-4. **Generate music** that matches the mood
-5. **Assemble** into final video
+2. **Create scenes** with visual descriptions
+3. **Generate images** for each scene sequentially
+4. **Animate images** into videos one by one
+5. **Generate music** that matches the mood
+6. **Assemble** into final video
 
-### 🚀 Parallel Generation Tips
-**Call tools in parallel for multiple assets:**
-```
-# Call multiple tools simultaneously (not sequentially)
-# The agent will handle concurrent requests efficiently
-```
+### 📈 Sequential Processing
+Call generation tools one at a time for:
+- Clear progress tracking in the UI
+- Easier debugging if something fails
+- Better readability of the generation process
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
 {_get_platform_specific_tips(platform)}

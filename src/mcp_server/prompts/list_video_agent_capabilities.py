@@ -127,39 +127,15 @@ assemble_video(project_id)
 export_final_video(project_id, "instagram_reel")
 ```
 
-## 🚀 Parallel Generation for Better Performance
-
-### RECOMMENDED: Call Tools in Parallel
-When creating multiple scenes, make multiple tool calls simultaneously:
+## 🚀 Example: Complete Video Project Workflow
 
 ```python
-# ✅ BEST: Call multiple tools in one message (agent handles parallel execution)
-# Make all these calls at once:
-generate_video_from_image(image1_url, "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=s1)
-generate_video_from_image(image2_url, "pan left", duration=5, model="kling_2.1", project_id=pid, scene_id=s2)
-generate_video_from_image(image3_url, "zoom out", duration=5, model="kling_2.1", project_id=pid, scene_id=s3)
-generate_video_from_image(image4_url, "tilt up", duration=5, model="kling_2.1", project_id=pid, scene_id=s4)
-generate_video_from_image(image5_url, "fade in", duration=5, model="kling_2.1", project_id=pid, scene_id=s5)
-
-# ❌ WRONG: Sequential generation (slower!)
-# Don't call tools one by one waiting for each to complete
-```
-
-### Why Parallel Tool Calls Work:
-• Agent intelligently manages concurrent requests
-• Multiple scenes process simultaneously
-• Simple and reliable - each tool call is independent
-• No complex queue management needed
-• Still much faster than sequential processing
-
-### Example: Complete Video Project with Parallel Processing
-```python
-# Step 1: Transform reference images (if needed) - call all at once
+# Step 1: Transform reference images (if needed)
 generate_image_from_image(ref1, "add cinematic lighting", project_id=pid, scene_id=s1)
 generate_image_from_image(ref2, "enhance colors", project_id=pid, scene_id=s2)
 generate_image_from_image(ref3, "add dramatic shadows", project_id=pid, scene_id=s3)
 
-# Step 2: Generate all videos - call all at once
+# Step 2: Generate videos from images
 generate_video_from_image(img1, "slow zoom in", duration=5, model="kling_2.1", project_id=pid, scene_id=s1)
 generate_video_from_image(img2, "pan left", duration=5, model="kling_2.1", project_id=pid, scene_id=s2)
 generate_video_from_image(img3, "zoom out", duration=5, model="kling_2.1", project_id=pid, scene_id=s3)
@@ -167,12 +143,15 @@ generate_video_from_image(img3, "zoom out", duration=5, model="kling_2.1", proje
 # Step 3: Generate audio
 generate_speech(text1, project_id=pid, scene_id=s1)
 generate_music("epic background music", project_id=pid)
+
+# Step 4: Assemble final video
+assemble_video(project_id)
 ```
 
 ## 💡 Pro Tips
 
 ### Workflow Best Practices
-• **CRITICAL**: Delegate tasks to Claude Code agent for multiple scenes - call all generation tools in ONE message
+• **RECOMMENDED**: Process scenes sequentially for clear progress tracking
 • **IMPORTANT**: Generate voiceover FIRST for narrated videos - this ensures perfect audio-visual sync
 • **CRITICAL**: When user provides reference image URL, use `generate_image_from_image`, NOT `generate_image_from_text`
 • Start with `video_creation_wizard()` for guided workflows

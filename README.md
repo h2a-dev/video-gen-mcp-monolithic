@@ -98,8 +98,8 @@ creating a project and planning the scenes...
 - `generate_music` - Create background music from text descriptions
 - `generate_speech` - Generate voiceovers with multiple voice options
 
-### Parallel Processing
-For multiple generations, call tools in parallel rather than sequentially. The agent will handle concurrent requests efficiently.
+### Generation Tools
+Call generation tools sequentially for clear progress tracking and easier debugging.
 
 ### Video Assembly
 - `download_assets` - Download generated assets from FAL or other sources
