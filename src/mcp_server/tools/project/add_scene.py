@@ -30,8 +30,8 @@ async def add_scene(
                 example="add_scene(project_id='...', description='Hero walking through city streets', duration=10)"
             )
         
-        # Validate duration
-        duration_validation = validate_duration(duration, valid_durations=[5, 10])
+        # Validate duration (5, 6, or 10 seconds to support both Kling and Hailuo)
+        duration_validation = validate_duration(duration, valid_durations=[5, 6, 10])
         if not duration_validation["valid"]:
             return duration_validation["error_response"]
         duration = duration_validation["value"]
