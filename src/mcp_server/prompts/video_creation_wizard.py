@@ -85,6 +85,18 @@ Based on {recommended_duration} seconds, I recommend:
 2. Animate with dynamic motion
 3. Add music as the primary audio
 
+#### Working with Existing Images:
+If you have reference images or want to use local files:
+1. **Local files are auto-uploaded**: Just provide the path
+   ```
+   generate_video_from_image("/path/to/image.jpg", "slow zoom in")
+   ```
+2. **Transform existing images**: Use generate_image_from_image
+   ```
+   generate_image_from_image("/path/to/image.jpg", "add cinematic lighting")
+   ```
+3. **URLs work directly**: No upload needed for web images
+
 ### Step 5: Production Workflow
 
 #### Voiceover-First Workflow (RECOMMENDED for narrated videos):

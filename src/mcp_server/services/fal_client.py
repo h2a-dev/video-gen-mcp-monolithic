@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 import time
 import fal_client
+from pathlib import Path
 from ..config import settings
 
 
@@ -244,31 +245,77 @@ class FALClient:
             }
         )
     
-    async def _run_with_retry(self, model_id: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Run FAL model with retry logic and error handling."""
+    async def upload_file(self, file_path: str) -> Dict[str, Any]:
+        """Upload a file to FAL and get a URL."""
+        try:
+            path = Path(file_path)
+            if not path.exists():
+                raise ValueError(f"File not found: {file_path}")
+            
+            if not path.is_file():
+                raise ValueError(f"Path is not a file: {file_path}")
+            
+            # Upload file and get URL
+            url = await fal_client.upload_file_async(str(path))
+            
+            return {
+                "success": True,
+                "url": url,
+                "original_path": file_path
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def _run_with_queue(self, model_id: str, arguments: Dict[str, Any], progress_callback=None) -> Dict[str, Any]:
+        """Run FAL model using queue-based processing with polling."""
         last_error = None
         
         for attempt in range(self.max_retries):
             try:
-                # Add timeout to arguments if not present
-                if "sync_mode" not in arguments:
-                    arguments["sync_mode"] = True
-                
-                def run_sync():
-                    return fal_client.run(model_id, arguments=arguments)
-                
-                # Run with timeout
-                loop = asyncio.get_event_loop()
-                result = await asyncio.wait_for(
-                    loop.run_in_executor(None, run_sync),
-                    timeout=self.timeout
+                # Submit job to queue
+                handler = await fal_client.submit_async(
+                    model_id,
+                    arguments=arguments
                 )
                 
-                # Validate result
-                if isinstance(result, dict):
-                    return result
-                else:
-                    raise ValueError(f"Unexpected response type: {type(result)}")
+                request_id = handler.request_id
+                print(f"Job submitted to queue. Request ID: {request_id}")
+                
+                # Poll for status
+                poll_interval = 15  # seconds
+                max_polls = int(self.timeout / poll_interval)
+                
+                for poll_count in range(max_polls):
+                    # Check status
+                    status = await fal_client.status_async(model_id, request_id, with_logs=True)
+                    
+                    # Check if completed
+                    if hasattr(status, 'status'):
+                        if status.status == 'COMPLETED':
+                            # Get the result
+                            result = await fal_client.result_async(model_id, request_id)
+                            return result
+                        elif status.status == 'FAILED':
+                            raise RuntimeError(f"Job failed: {getattr(status, 'error', 'Unknown error')}")
+                    
+                    # Progress callback if provided
+                    if progress_callback and hasattr(status, 'progress'):
+                        progress_callback(status.progress)
+                    
+                    # Log progress
+                    if hasattr(status, 'logs') and status.logs:
+                        for log in status.logs:
+                            if isinstance(log, dict) and 'message' in log:
+                                print(f"[FAL] {log['message']}")
+                    
+                    print(f"Generation in progress... waiting {poll_interval} seconds before next check")
+                    await asyncio.sleep(poll_interval)
+                
+                # Timeout reached
+                raise asyncio.TimeoutError(f"Job timed out after {self.timeout} seconds")
                     
             except asyncio.TimeoutError:
                 last_error = f"Request timed out after {self.timeout} seconds"
@@ -292,6 +339,10 @@ class FALClient:
         
         # All retries failed
         raise RuntimeError(f"FAL API call failed after {self.max_retries} attempts: {last_error}")
+    
+    async def _run_with_retry(self, model_id: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Run FAL model with retry logic and error handling - now uses queue-based processing."""
+        return await self._run_with_queue(model_id, arguments)
 
 
 # Singleton instance

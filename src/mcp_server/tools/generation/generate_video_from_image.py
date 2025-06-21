@@ -37,7 +37,7 @@ async def generate_video_from_image(
     Convert a single image to video with AI-generated motion.
     
     Args:
-        image_url: Image input - can be a URL, base64 data URI, or local file path
+        image_url: Image input - can be a URL or local file path
         motion_prompt: Description of the motion to apply
         duration: Video duration in seconds (5 or 10)
         aspect_ratio: Video aspect ratio
@@ -49,12 +49,12 @@ async def generate_video_from_image(
         Dict with video generation results
     """
     try:
-        # Validate and process image input (URL, base64, or file path)
-        image_validation = process_image_input(image_url)
+        # Validate and process image input (URL or file path)
+        image_validation = await process_image_input(image_url, fal_service)
         if not image_validation["valid"]:
             return image_validation["error_response"]
         
-        # Use the processed image data (URL or base64 data URI)
+        # Use the processed image URL (original or uploaded)
         processed_image_url = image_validation["data"]
         
         # Validate motion prompt

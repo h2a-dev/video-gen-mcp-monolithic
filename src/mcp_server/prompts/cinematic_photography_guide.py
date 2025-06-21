@@ -199,6 +199,25 @@ To use these enhancements:
 4. Add lighting and composition details
 5. For video, include camera movement terms
 
+## 🎨 Image Enhancement Workflow
+
+When working with existing images, use generate_image_from_image to apply cinematic transformations:
+
+### Example Transformations:
+```
+# Add cinematic lighting
+generate_image_from_image("/path/to/image.jpg", "golden hour lighting, warm tones, cinematic color grading")
+
+# Change camera perspective
+generate_image_from_image(image_url, "shot with 85mm lens, shallow depth of field, bokeh background")
+
+# Add atmosphere
+generate_image_from_image(image_url, "add fog, volumetric lighting, moody atmosphere")
+
+# Professional color grading
+generate_image_from_image(image_url, "teal and orange color grading, high contrast, cinema LUT")
+```
+
 ## 📋 Quick Reference
 
 ### 📸 STILL IMAGE CAMERAS & LENSES

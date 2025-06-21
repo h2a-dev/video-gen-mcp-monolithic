@@ -37,6 +37,7 @@ temp/
 htmlcov/
 .tox/
 .nox/
+tests/
 
 # Project specific
 *.mp4

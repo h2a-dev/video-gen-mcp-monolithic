@@ -93,7 +93,8 @@ creating a project and planning the scenes...
 
 ### Content Generation
 - `generate_image_from_text` - Create images from text prompts with style modifiers
-- `generate_video_from_image` - Animate still images with AI-generated motion
+- `generate_image_from_image` - Transform existing images with AI-powered editing
+- `generate_video_from_image` - Animate still images with AI-generated motion (supports local files)
 - `generate_music` - Create background music from text descriptions
 - `generate_speech` - Generate voiceovers with multiple voice options
 
@@ -105,6 +106,7 @@ creating a project and planning the scenes...
 ### Utility
 - `analyze_script` - Analyze scripts for video production insights
 - `suggest_scenes` - Generate scene suggestions based on project script
+- `upload_image_file` - Upload local image files to FAL for use in generation tools
 - `get_server_info` - Get information about the Video Agent server
 
 ## Resources

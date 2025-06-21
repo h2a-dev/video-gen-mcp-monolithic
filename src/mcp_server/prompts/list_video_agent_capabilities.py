@@ -27,8 +27,10 @@ Video creation and manipulation functions:
 
 ### Content Generation
 • **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
+• **generate_image_from_image** (image_url, prompt, guidance_scale, project_id, scene_id) - Transform images with AI
+  - Accepts: URL or local file path for image_url (auto-uploads files)
 • **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id) - Animate still images with AI
-  - Accepts: URL, base64 data URI, or local file path for image_url
+  - Accepts: URL or local file path for image_url (auto-uploads files)
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
 • **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
@@ -41,6 +43,7 @@ Video creation and manipulation functions:
 ### Utility Tools
 • **analyze_script** (script, target_duration, platform) - Analyze script for scene suggestions and timing
 • **suggest_scenes** (project_id, style) - Generate scene ideas based on script and style
+• **upload_image_file** (file_path) - Upload local image file to FAL and get URL for use in other tools
 • **get_server_info** () - Server configuration and status
 
 ## 📊 Resources
@@ -103,12 +106,14 @@ create_project("My Video", "instagram_reel")
 # Download your assets
 download_assets([url1, url2, url3], project_id)
 
-# Generate videos from your images (supports URL, base64, or local file)
+# Generate videos from your images (supports URL or local file)
 generate_video_from_image(your_image_url, "zoom in with dramatic effect")
-# Or from local file:
+# Or from local file (auto-uploads):
 generate_video_from_image("/path/to/local/image.png", "pan left slowly")
-# Or from base64:
-generate_video_from_image("data:image/png;base64,iVBORw0...", "zoom out reveal")
+
+# Transform existing images
+generate_image_from_image("/path/to/image.jpg", "make it more cinematic")
+generate_image_from_image(image_url, "add warm sunset lighting")
 
 # Add generated audio
 generate_music("trendy upbeat music")
