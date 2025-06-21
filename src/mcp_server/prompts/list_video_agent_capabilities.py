@@ -38,14 +38,6 @@ Video creation and manipulation functions:
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
 • **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
-### Batch Generation (Guaranteed Parallel Processing)
-• **generate_video_from_image_batch** (requests) - Generate multiple videos simultaneously
-  - Max 10 videos per batch
-  - Each request contains: image_url, motion_prompt, duration, aspect_ratio, model, etc.
-• **generate_image_from_image_batch** (requests) - Transform multiple images simultaneously
-  - Max 20 images per batch
-  - Each request contains: image_url, prompt, guidance_scale, safety_tolerance, etc.
-
 ### Video Assembly
 • **download_assets** (asset_urls, project_id, asset_type, parallel_downloads) - Download generated assets locally
 • **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes AND mix all audio tracks in one step (call only ONCE)
