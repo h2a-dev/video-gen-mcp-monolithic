@@ -18,6 +18,7 @@ async def generate_image_from_image(
     image_url: str,
     prompt: str,
     guidance_scale: float = 3.5,
+    safety_tolerance: int = 5,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -28,6 +29,7 @@ async def generate_image_from_image(
         image_url: Source image - can be a URL or local file path
         prompt: Text description of the transformation to apply
         guidance_scale: How closely to follow the prompt (1.0-10.0, default 3.5)
+        safety_tolerance: Safety filter level (1-6, default 5. 1=strictest, 6=most permissive)
         project_id: Optional project to associate the image with
         scene_id: Optional scene within the project
         
@@ -61,6 +63,14 @@ async def generate_image_from_image(
             return scale_validation["error_response"]
         guidance_scale = scale_validation["value"]
         
+        # Validate safety tolerance
+        safety_validation = validate_range(
+            safety_tolerance, "safety_tolerance", 1, 6, "Safety tolerance"
+        )
+        if not safety_validation["valid"]:
+            return safety_validation["error_response"]
+        safety_tolerance = safety_validation["value"]
+        
         # Validate project exists if provided
         if project_id:
             project_validation = validate_project_exists(project_id, ProjectManager)
@@ -85,7 +95,8 @@ async def generate_image_from_image(
             image_url=processed_image_url,
             prompt=prompt,
             model="flux_kontext",
-            guidance_scale=guidance_scale
+            guidance_scale=guidance_scale,
+            safety_tolerance=str(safety_tolerance)  # API expects string
         )
         
         if not result["success"]:
@@ -107,12 +118,14 @@ async def generate_image_from_image(
                 "model": "flux_kontext",
                 "source_image": image_url,
                 "prompt": prompt,
-                "guidance_scale": guidance_scale
+                "guidance_scale": guidance_scale,
+                "safety_tolerance": safety_tolerance
             },
             generation_params={
                 "image_url": processed_image_url,
                 "prompt": prompt,
-                "guidance_scale": guidance_scale
+                "guidance_scale": guidance_scale,
+                "safety_tolerance": str(safety_tolerance)
             }
         )
         
@@ -148,7 +161,8 @@ async def generate_image_from_image(
                 "model": "flux_kontext",
                 "source_image": image_url,
                 "prompt": prompt,
-                "guidance_scale": guidance_scale
+                "guidance_scale": guidance_scale,
+                "safety_tolerance": safety_tolerance
             },
             "project_association": {
                 "project_id": project_id,

@@ -64,11 +64,12 @@ class FALClient:
         prompt: str,
         model: str = "flux_kontext",
         guidance_scale: float = 3.5,
+        safety_tolerance: str = "5",
         **kwargs
     ) -> Dict[str, Any]:
         """Transform image based on prompt."""
         try:
-            result = await self._run_flux_kontext(image_url, prompt, guidance_scale, **kwargs)
+            result = await self._run_flux_kontext(image_url, prompt, guidance_scale, safety_tolerance, **kwargs)
             
             return {
                 "success": True,
@@ -194,7 +195,7 @@ class FALClient:
             }
         )
     
-    async def _run_flux_kontext(self, image_url: str, prompt: str, guidance_scale: float, **kwargs) -> Dict[str, Any]:
+    async def _run_flux_kontext(self, image_url: str, prompt: str, guidance_scale: float, safety_tolerance: str, **kwargs) -> Dict[str, Any]:
         """Run FLUX Kontext model for image editing with retry logic."""
         return await self._run_with_retry(
             model_id="fal-ai/flux-pro/kontext",
@@ -202,6 +203,7 @@ class FALClient:
                 "prompt": prompt,
                 "image_url": image_url,
                 "guidance_scale": guidance_scale,
+                "safety_tolerance": safety_tolerance,
                 **kwargs
             }
         )

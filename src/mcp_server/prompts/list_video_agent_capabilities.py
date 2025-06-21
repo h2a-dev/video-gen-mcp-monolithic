@@ -27,8 +27,9 @@ Video creation and manipulation functions:
 
 ### Content Generation
 • **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
-• **generate_image_from_image** (image_url, prompt, guidance_scale, project_id, scene_id) - Transform images with AI
+• **generate_image_from_image** (image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id) - Transform images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
+  - Safety tolerance: 1-6 (default 5, higher = more permissive)
 • **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, project_id, scene_id) - Animate still images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
@@ -207,36 +208,43 @@ generate_music("background music", project_id=pid)
 
 ## 🎨 Reference Image Workflows
 
-### When User Provides a Reference Image URL
-If the user provides an image URL as a reference, you should:
+### When User Provides a Reference Image (URL or Local File)
+Local files are automatically uploaded - no manual upload needed!
 
-1. **Use Image-to-Image Models** to maintain visual consistency:
+1. **For Local Files** - Just use the path directly:
 ```python
-# User provides: "Create variations of this product photo"
-reference_url = "https://example.com/product.jpg"
-
-# Generate variations maintaining the style
+# User provides: "/home/user/photos/product.jpg"
+# ✅ CORRECT: Direct use of local file (auto-uploaded!)
 generate_image_from_image(
-    reference_url, 
-    "product on white background with soft shadows",
-    model="flux_kontext"
+    "/home/user/photos/product.jpg",  # Automatically uploaded
+    "professional product shot with clean background",
+    guidance_scale=4.0,
+    safety_tolerance=5  # Default 5 for more creative freedom
 )
 
-# For multiple reference images
+# ❌ WRONG: Manual upload not needed
+url = upload_image_file("/home/user/photos/product.jpg")
+generate_image_from_image(url, "enhance lighting")
+```
+
+2. **For URLs** - Use directly:
+```python
+# User provides: "https://example.com/product.jpg"
 generate_image_from_image(
-    [ref_url1, ref_url2], 
-    "combine styles with dramatic lighting",
-    model="flux_kontext_multi"
+    "https://example.com/product.jpg", 
+    "product on white background with soft shadows",
+    guidance_scale=3.5,
+    safety_tolerance=5
 )
 ```
 
-2. **DO NOT use text-to-image** when reference is provided:
+3. **DO NOT use text-to-image** when reference is provided:
 ```python
 # ❌ WRONG: Ignoring the reference
 generate_image_from_text("product photo")  
 
-# ✅ CORRECT: Using the reference
-generate_image_from_image(reference_url, "product from different angle")
+# ✅ CORRECT: Using the reference (local or URL)
+generate_image_from_image(user_provided_image, "product from different angle")
 ```
 
 ## 🎯 Common Workflows
