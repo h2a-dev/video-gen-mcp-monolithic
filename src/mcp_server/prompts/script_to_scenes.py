@@ -4,305 +4,213 @@ from ..models import ProjectManager
 import re
 
 
-async def script_to_scenes(project_id: str) -> str:
-    """Convert project script into optimized scene breakdown."""
+async def script_to_scenes(script: str, target_duration: int, style: str = "dynamic") -> list:
+    """Convert a script into detailed scene breakdowns."""
     
-    try:
-        project = ProjectManager.get_project(project_id)
+    # Analyze script structure
+    sentences = re.split(r'[.!?]+', script)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    
+    # Calculate timing
+    words_per_second = 2.5  # Average speaking rate
+    total_words = len(script.split())
+    estimated_duration = total_words / words_per_second
+    
+    # Scene duration recommendations
+    if style == "dynamic":
+        scene_length = 5  # Quick cuts
+    elif style == "cinematic":
+        scene_length = 10  # Longer takes
+    else:  # minimal
+        scene_length = 7  # Medium pacing
+    
+    # Calculate number of scenes
+    num_scenes = max(3, min(12, target_duration // scene_length))
+    
+    content = f"""# 🎬 Script-to-Scenes Breakdown
+
+## 📝 Script Analysis
+- **Total words**: {total_words}
+- **Estimated narration time**: {estimated_duration:.1f} seconds
+- **Target duration**: {target_duration} seconds
+- **Style**: {style}
+- **Recommended scenes**: {num_scenes}
+
+## 🎯 Scene Breakdown Strategy
+
+### Timing Considerations
+- **Scene length**: {scene_length} seconds each
+- **Total scenes**: {num_scenes}
+- **Pacing**: {'Fast cuts for energy' if style == 'dynamic' else 'Longer takes for impact' if style == 'cinematic' else 'Balanced pacing'}
+
+### Scene Distribution
+"""
+    
+    # Distribute script across scenes
+    sentences_per_scene = max(1, len(sentences) // num_scenes)
+    
+    scene_suggestions = []
+    for i in range(num_scenes):
+        start_idx = i * sentences_per_scene
+        end_idx = start_idx + sentences_per_scene if i < num_scenes - 1 else len(sentences)
+        scene_text = ' '.join(sentences[start_idx:end_idx])
         
-        if not project.script:
-            return """# ❌ No Script Found
+        if scene_text:
+            scene_suggestions.append({
+                "scene": i + 1,
+                "duration": scene_length,
+                "text": scene_text[:150] + "..." if len(scene_text) > 150 else scene_text,
+                "timing": f"{i * scene_length}-{(i + 1) * scene_length}s"
+            })
+    
+    # Add scene details to content
+    for scene in scene_suggestions:
+        content += f"""
+#### Scene {scene['scene']} ({scene['timing']})
+- **Duration**: {scene['duration']} seconds
+- **Content**: "{scene['text']}"
+- **Visual suggestion**: {_get_visual_suggestion(scene['text'], style)}
+"""
+    
+    content += f"""
+## 🎥 Production Workflow
 
-This project doesn't have a script yet. To add a script:
-
-1. Update your project with a script:
-   ```
-   # Option 1: Create new project with script
-   create_project(title="...", platform="...", script="Your script here")
-   
-   # Option 2: Use analyze_script tool
-   analyze_script("Your script here", target_duration={target}, platform="{platform}")
-   ```
-
-2. Or proceed without a script by manually adding scenes:
-   ```
-   add_scene(project_id="{project_id}", description="Scene description", duration=5)
-   ```
-""".format(
-                target=project.target_duration,
-                platform=project.platform,
-                project_id=project_id
-            )
-        
-        # Analyze script
-        word_count = len(project.script.split())
-        sentence_count = len(re.split(r'[.!?]+', project.script))
-        
-        # Estimate speaking duration (140 words per minute for realistic pacing)
-        estimated_speaking_time = (word_count / 140) * 60
-        
-        # Calculate scene recommendations
-        target_duration = project.target_duration or estimated_speaking_time
-        optimal_scenes = _calculate_optimal_scenes(target_duration)
-        
-        # Calculate effective duration after frame trimming
-        trimmed_duration = 0.5 * (optimal_scenes - 1)  # 0.5s per scene after first
-        effective_duration = target_duration - trimmed_duration
-        recommended_script_duration = effective_duration - 1  # 1 second buffer
-        
-        # Parse script into potential scenes
-        script_segments = _segment_script(project.script, optimal_scenes)
-        
-        # Build warning message outside of f-string
-        warning_msg = ""
-        if estimated_speaking_time > recommended_script_duration:
-            diff = estimated_speaking_time - recommended_script_duration
-            warning_msg = f"⚠️ **WARNING**: Your script is {diff:.1f} seconds too long! Consider trimming to avoid rushed delivery.\n\n"
-        
-        return f"""# 🎬 Script-to-Scenes Breakdown
-
-## 📊 Script Analysis
-- **Word Count**: {word_count} words
-- **Estimated Speaking Time**: {estimated_speaking_time:.1f} seconds
-- **Target Video Duration**: {target_duration} seconds
-- **Effective Duration**: {effective_duration:.1f} seconds (after {trimmed_duration:.1f}s of transitions)
-- **Recommended Script Duration**: {recommended_script_duration:.1f} seconds
-- **Platform**: {project.platform}
-
-{warning_msg}## 🎯 Scene Planning
-Based on your script and target duration, I recommend **{optimal_scenes} scenes**:
-
-### Optimal Scene Structure:
-{_generate_scene_structure(target_duration, optimal_scenes)}
-
-## 📝 Script Segmentation
-I've analyzed your script and identified these natural break points:
-
-{_format_script_segments(script_segments, target_duration, optimal_scenes)}
-
-## 🎨 Scene Descriptions
-Here are visual scene suggestions based on your script:
-
-{_generate_scene_suggestions(script_segments, project.platform)}
-
-## 🚀 Quick Implementation
-Copy and run these commands to create all scenes:
-
-```python
-# Create all scenes at once
-{_generate_scene_commands(script_segments, project_id)}
+### Step 1: Create Project
+```
+project = create_project(
+    title="Your Video Title",
+    platform="youtube",  # or your target platform
+    script=\"\"\"{script[:200]}...\"\"\"",
+    target_duration={target_duration}
+)
 ```
 
-## 💡 Next Steps - Voiceover-First Workflow (RECOMMENDED)
-
-### 🎯 For Best Audio-Visual Synchronization:
-
-1. **FIRST: Generate voiceover** to establish timing:
-   ```python
-   generate_speech(text=script, voice="Friendly_Person")
-   ```
-   Choose from these voices:
-   - **Wise_Woman**: Professional, authoritative female voice
-   - **Friendly_Person**: Warm, approachable voice
-   - **Deep_Voice_Man**: Deep, commanding male voice
-   - **Calm_Woman**: Soothing, peaceful female voice
-   - **Casual_Guy**: Relaxed, conversational male voice
-   - **Inspirational_girl**: Energetic, motivating female voice
-
-2. **Listen to the voiceover** and note natural pauses and emphasis points
-
-3. **Create scenes** that align with voiceover timing:
-   ```python
-   # Use the scene commands above, but adjust timing based on voiceover
-   ```
-
-4. **Generate images** that match what's being said at each moment
-
-5. **Animate images** with motion that complements the narration pace
-
-6. **Add background music** at low volume (30%) if desired
-
-7. **Assemble everything** with perfect synchronization
-
-### Alternative Visual-First Workflow:
-Only use this if you're NOT using voiceover:
-1. Create scenes → 2. Generate images → 3. Animate → 4. Add music → 5. Assemble
-
-## 🎯 Pro Tips for Perfect Synchronization
-- **Generate voiceover FIRST** - this is the key to professional results!
-- {_get_pacing_tip(target_duration, optimal_scenes)}
-- Match scene transitions to natural pauses in your voiceover
-- Plan visual changes at emphasis points in the narration
-- Use visual metaphors to reinforce what's being said
-- Keep the most impactful content in the middle 60% of your video
-- Test voiceover duration before committing to scene timing
-- **NEW**: Use `cinematic_photography_guide()` for professional camera techniques!
+### Step 2: Add Scenes
 """
-        
-    except Exception as e:
-        return f"Error analyzing script: {str(e)}"
-
-
-def _calculate_optimal_scenes(duration: int) -> int:
-    """Calculate optimal number of scenes for duration."""
-    if duration <= 15:
-        return max(1, duration // 5)
-    elif duration <= 30:
-        return 3
-    elif duration <= 60:
-        return duration // 15
-    else:
-        # For longer videos, aim for scene changes every 15-20 seconds
-        return duration // 17
-
-
-def _segment_script(script: str, target_scenes: int) -> list:
-    """Segment script into scenes based on natural breaks."""
-    # Split by sentences
-    sentences = [s.strip() for s in re.split(r'[.!?]+', script) if s.strip()]
     
-    if len(sentences) <= target_scenes:
-        # Each sentence becomes a scene
-        return sentences
-    
-    # Group sentences into scenes
-    sentences_per_scene = max(1, len(sentences) // target_scenes)
-    segments = []
-    
-    for i in range(0, len(sentences), sentences_per_scene):
-        segment = '. '.join(sentences[i:i+sentences_per_scene])
-        if segment:
-            segments.append(segment + '.')
-    
-    # Merge last segment if too short
-    if len(segments) > target_scenes and len(segments[-1].split()) < 10:
-        segments[-2] += ' ' + segments[-1]
-        segments.pop()
-    
-    return segments[:target_scenes]
-
-
-def _generate_scene_structure(duration: int, scenes: int) -> str:
-    """Generate recommended scene duration structure."""
-    if scenes == 1:
-        return f"- 1 scene: {duration} seconds"
-    
-    # Calculate mix of 5 and 10 second scenes
-    ten_second_scenes = duration // 10
-    remaining = duration % 10
-    five_second_scenes = 0
-    
-    if remaining >= 5:
-        five_second_scenes = 1
-        ten_second_scenes = (duration - 5) // 10
-    
-    structure = []
-    if ten_second_scenes > 0:
-        structure.append(f"{ten_second_scenes} × 10-second scenes")
-    if five_second_scenes > 0:
-        structure.append(f"{five_second_scenes} × 5-second scene")
-    
-    return "- " + "\n- ".join(structure)
-
-
-def _format_script_segments(segments: list, duration: int, scenes: int) -> str:
-    """Format script segments with timing."""
-    if not segments:
-        return "No segments identified"
-    
-    # Calculate duration per segment
-    base_duration = duration // len(segments)
-    remainder = duration % len(segments)
-    
-    formatted = []
-    current_time = 0
-    
-    for i, segment in enumerate(segments):
-        # Add extra second to early scenes if there's remainder
-        scene_duration = base_duration + (1 if i < remainder else 0)
-        
-        # Prefer 5 or 10 second durations
-        if scene_duration > 7:
-            scene_duration = 10
-        elif scene_duration > 2:
-            scene_duration = 5
-        
-        formatted.append(f"""### Scene {i+1} (0:{current_time:02d} - 0:{current_time+scene_duration:02d})
-**Duration**: {scene_duration} seconds
-**Script**: "{segment[:100]}{'...' if len(segment) > 100 else ''}"
-""")
-        current_time += scene_duration
-    
-    return '\n'.join(formatted)
-
-
-def _generate_scene_suggestions(segments: list, platform: str) -> str:
-    """Generate visual suggestions for each script segment."""
-    suggestions = []
-    
-    for i, segment in enumerate(segments):
-        # Extract key concepts from segment
-        key_words = [word for word in segment.split() if len(word) > 4][:3]
-        
-        suggestion = f"""### Scene {i+1} Visual Concept:
-**Script excerpt**: "{segment[:60]}..."
-**Visual suggestion**: {_create_visual_suggestion(key_words, i, platform)}
-**Motion idea**: {_create_motion_suggestion(i, len(segments))}
+    # Add scene creation commands
+    for i, scene in enumerate(scene_suggestions):
+        content += f"""
+```
+# Scene {scene['scene']}
+add_scene(
+    project_id=project['project']['id'],
+    description="{_get_scene_description(scene['text'], style)}",
+    duration={scene['duration']}
+)
+```
 """
-        suggestions.append(suggestion)
     
-    return '\n'.join(suggestions)
+    content += """
+### Step 3: Generate Voiceover (if narrated)
+```
+generate_speech(
+    text=script,
+    voice="Friendly_Person",  # or choose appropriate voice
+    project_id=project['project']['id']
+)
+```
 
+### Step 4: Generate Visuals
+For each scene, generate images that match the narration:
+```
+# For each scene
+generate_image_from_text(
+    prompt="[scene-specific visual description]",
+    model="imagen4",
+    aspect_ratio="16:9",
+    style_modifiers=["cinematic"],
+    project_id=project['project']['id'],
+    scene_id=scene_id
+)
+```
 
-def _create_visual_suggestion(key_words: list, scene_index: int, platform: str) -> str:
-    """Create visual suggestion based on keywords."""
-    # Opening scene
-    if scene_index == 0:
-        return f"Eye-catching opener featuring {' and '.join(key_words)}, {platform}-optimized composition"
-    # Closing scene
-    elif scene_index >= 3:
-        return f"Conclusive visual with {key_words[0] if key_words else 'summary'}, call-to-action overlay"
-    # Middle scenes
+### Step 5: Animate Images
+```
+generate_video_from_image(
+    image_url=image_url,
+    motion_prompt="[appropriate motion for scene]",
+    duration=scene_duration,
+    project_id=project['project']['id'],
+    scene_id=scene_id
+)
+```
+
+### Step 6: Add Music (optional)
+```
+generate_music(
+    prompt="[mood-appropriate music description]",
+    project_id=project['project']['id']
+)
+```
+
+### Step 7: Final Assembly
+```
+assemble_video(project_id=project['project']['id'])
+```
+
+## 💡 Style-Specific Tips
+
+"""
+    
+    if style == "dynamic":
+        content += """### Dynamic Style
+- Use quick cuts between scenes
+- Add energetic motion to each clip
+- Consider upbeat music
+- Emphasize visual variety"""
+    elif style == "cinematic":
+        content += """### Cinematic Style
+- Use slower, deliberate camera movements
+- Focus on composition and lighting
+- Add dramatic pauses between scenes
+- Consider orchestral or ambient music"""
     else:
-        return f"Illustrative scene showing {' and '.join(key_words[:2])}, dynamic composition"
+        content += """### Minimal Style
+- Keep visuals simple and clean
+- Use subtle movements
+- Focus on the message
+- Consider minimal or no music"""
+    
+    content += """
+
+## 🎯 Ready to Create?
+This breakdown provides a structured approach to convert your script into a compelling video. Adjust the scenes and timing as needed for your specific content!
+"""
+    
+    # Return in FastMCP 2.0 format
+    return [{"role": "assistant", "content": content}]
 
 
-def _create_motion_suggestion(scene_index: int, total_scenes: int) -> str:
-    """Create motion suggestion based on scene position."""
-    if scene_index == 0:
-        return "Zoom in or fade in for engaging start"
-    elif scene_index == total_scenes - 1:
-        return "Slow zoom out or fade for closure"
-    elif scene_index % 2 == 0:
-        return "Subtle pan or drift for visual interest"
+def _get_visual_suggestion(text: str, style: str) -> str:
+    """Generate visual suggestion based on text content and style."""
+    text_lower = text.lower()
+    
+    if style == "dynamic":
+        if any(word in text_lower for word in ["action", "move", "run", "jump"]):
+            return "Fast-paced action shot with motion blur"
+        elif any(word in text_lower for word in ["talk", "say", "speak"]):
+            return "Close-up with dynamic background"
+        else:
+            return "Vibrant scene with movement"
+    elif style == "cinematic":
+        if any(word in text_lower for word in ["landscape", "view", "scene"]):
+            return "Wide establishing shot with depth"
+        elif any(word in text_lower for word in ["emotion", "feel", "heart"]):
+            return "Intimate close-up with soft lighting"
+        else:
+            return "Composed shot with cinematic framing"
     else:
-        return "Gentle zoom or parallax effect"
+        return "Clean, focused composition"
 
 
-def _generate_scene_commands(segments: list, project_id: str) -> str:
-    """Generate add_scene commands for all segments."""
-    commands = []
+def _get_scene_description(text: str, style: str) -> str:
+    """Generate scene description for image generation."""
+    base_description = text[:100].strip()
     
-    for i, segment in enumerate(segments):
-        # Determine duration (prefer 10s for longer segments)
-        duration = 10 if len(segment.split()) > 15 else 5
-        
-        # Create concise description
-        description = segment[:50].replace('"', "'") + "..."
-        
-        command = f'add_scene(project_id="{project_id}", description="{description}", duration={duration})'
-        commands.append(command)
-    
-    return '\n'.join(commands)
-
-
-def _get_pacing_tip(duration: int, scenes: int) -> str:
-    """Get pacing tip based on video length."""
-    pace = duration / scenes
-    
-    if pace < 7:
-        return "Fast-paced video - ensure smooth transitions"
-    elif pace < 15:
-        return "Well-paced video - balance action and breathing room"
+    if style == "dynamic":
+        return f"Dynamic scene: {base_description}, vibrant colors, energetic composition"
+    elif style == "cinematic":
+        return f"Cinematic scene: {base_description}, dramatic lighting, professional composition"
     else:
-        return "Slower pace - focus on compelling visuals and narrative"
+        return f"Minimal scene: {base_description}, clean aesthetic, focused subject"

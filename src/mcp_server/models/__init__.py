@@ -15,6 +15,13 @@ from .schemas import (
     GENERATION_TASKS
 )
 
+from .queue_status import (
+    QueueStatus,
+    QueuedTask,
+    QueueManager,
+    queue_manager
+)
+
 __all__ = [
     "AssetType",
     "AssetSource",
@@ -27,5 +34,9 @@ __all__ = [
     "ProjectManager",
     "PROJECTS",
     "CURRENT_PROJECT_ID",
-    "GENERATION_TASKS"
+    "GENERATION_TASKS",
+    "QueueStatus",
+    "QueuedTask",
+    "QueueManager",
+    "queue_manager"
 ]

@@ -1,7 +1,7 @@
 # Video Agent MCP Server Requirements
 
-# Core MCP framework
-mcp>=1.0.0
+# Core MCP framework - FastMCP 2.0
+fastmcp>=2.0.0
 
 # FAL AI client
 fal-client>=0.4.0

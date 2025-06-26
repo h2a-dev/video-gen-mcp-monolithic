@@ -4,7 +4,7 @@ from ..config import get_platform_spec
 from ..models import ProjectManager
 
 
-async def video_creation_wizard(platform: str, topic: str) -> str:
+async def video_creation_wizard(platform: str, topic: str) -> list:
     """Interactive wizard for complete video creation."""
     
     # Get platform specifications
@@ -20,7 +20,7 @@ async def video_creation_wizard(platform: str, topic: str) -> str:
         else:
             return f"{seconds//60} minutes"
     
-    return f"""# 🎬 Video Creation Wizard: {platform.replace('_', ' ').title()} - "{topic}"
+    content = f"""# 🎬 Video Creation Wizard: {platform.replace('_', ' ').title()} - "{topic}"
 
 Welcome! I'll guide you through creating an engaging {platform.replace('_', ' ')} video about {topic}.
 
@@ -97,6 +97,7 @@ Based on {recommended_duration} seconds, I recommend:
    - Model: "kling_2.1" (default, reliable) or "hailuo_02" (10% cheaper)
    - Prompt optimizer: True by default (Hailuo only, improves results)
    - Motion strength: 0.1-1.0 (Kling only)
+   - **NEW**: Queue support with `return_queue_id=True` for non-blocking generation
    
 5. **Add background music** at lower volume
    ```
@@ -154,11 +155,34 @@ Technical details:
 5. **Generate music** that matches the mood
 6. **Assemble** into final video
 
-### 📈 Sequential Processing
+### 📈 Sequential vs Queued Processing
+
+#### Sequential Processing (Default)
 Call generation tools one at a time for:
 - Clear progress tracking in the UI
 - Easier debugging if something fails
 - Better readability of the generation process
+
+#### Queued Processing (NEW)
+For long-running tasks, use queue-based generation:
+```
+# Submit video generation and get queue ID immediately
+queue_id = generate_video_from_image(image_url, motion_prompt, duration=10, return_queue_id=True)
+# Returns: {"queued": True, "queue_id": "abc123", "estimated_cost": 0.50}
+
+# Check status anytime
+status = get_queue_status(task_id=queue_id)
+# Returns: {"status": "in_progress", "queue_position": 2, "progress": 45}
+
+# Monitor all project tasks
+get_queue_status(project_id=project_id, include_completed=True)
+```
+
+Benefits:
+- Non-blocking: Continue with other tasks while videos generate
+- Progress tracking: Real-time updates on queue position and progress
+- Batch processing: Submit multiple videos and monitor them together
+- Cancellation: Cancel tasks if needed with `cancel_task(task_id)`
 
 ## 💡 Platform-Specific Tips for {platform.replace('_', ' ').title()}
 {_get_platform_specific_tips(platform)}
@@ -182,12 +206,24 @@ export_final_video(project_id, platform="youtube", include_captions=False, inclu
 download_assets(asset_urls, project_id, asset_type="video", parallel_downloads=5)
 ```
 
-## 📊 Helpful Analysis Tools
+## 📊 Helpful Analysis & Monitoring Tools
 
+### Analysis Tools
 - **analyze_script**(script, target_duration, platform) - Get scene suggestions and timing
 - **suggest_scenes**(project_id, style="dynamic") - Generate scene ideas
+
+### Project Resources
 - **Get current status**: Use resource `project://current`
 - **Check costs**: Use resource `project://{project_id}/costs`
+
+### Queue Management (NEW)
+- **get_queue_status**(task_id) - Check specific task progress
+- **get_queue_status**(project_id=pid) - Monitor all project tasks
+- **cancel_task**(task_id) - Cancel a queued/running task
+- **Queue resources**:
+  - `queue://status` - Overall queue statistics
+  - `queue://task/{task_id}` - Specific task details
+  - `queue://project/{project_id}` - Project queue status
 
 ## 💰 Estimated Budget
 For a {format_duration(recommended_duration)} video:
@@ -207,6 +243,9 @@ Let's begin by creating your project! Once created, I'll help you:
 
 Just say "Let's start!" and I'll create your project and guide you through each step.
 """
+    
+    # Return in FastMCP 2.0 format
+    return [{"role": "assistant", "content": content}]
 
 
 def _get_scene_duration_recommendation(total_duration: int) -> str:

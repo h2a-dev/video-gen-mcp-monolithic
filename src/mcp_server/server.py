@@ -1,14 +1,59 @@
-"""Main MCP server implementation for Video Agent."""
+"""Main MCP server implementation for Video Agent using FastMCP 2.0."""
 
-from mcp.server import FastMCP
+import json
+from fastmcp import FastMCP
 from typing import List, Optional, Dict, Any
 from .config import settings
+
+# Import all tool implementations with aliases to avoid conflicts
+from .tools.project import (
+    create_project as create_project_impl,
+    add_scene as add_scene_impl,
+    list_projects as list_projects_impl
+)
+from .tools.generation import (
+    generate_image_from_text as generate_image_from_text_impl,
+    generate_image_from_image as generate_image_from_image_impl,
+    generate_video_from_image as generate_video_from_image_impl,
+    generate_music as generate_music_impl,
+    generate_speech as generate_speech_impl
+)
+from .tools.assembly import (
+    download_assets as download_assets_impl,
+    add_audio_track as add_audio_track_impl,
+    assemble_video as assemble_video_impl
+)
+from .tools.utility import (
+    analyze_script as analyze_script_impl,
+    suggest_scenes as suggest_scenes_impl,
+    upload_image_file as upload_image_file_impl
+)
+from .tools.queue import (
+    get_queue_status as get_queue_status_impl,
+    cancel_task as cancel_task_impl
+)
+
+# Import resource implementations
+from .resources import (
+    get_current_project,
+    get_project_timeline,
+    get_cost_breakdown,
+    get_platform_specs,
+    get_queue_status_resource
+)
+
+# Import prompt implementations
+from .prompts import (
+    video_creation_wizard,
+    script_to_scenes,
+    cinematic_photography_guide,
+    list_video_agent_capabilities
+)
 
 # Create the FastMCP server instance
 mcp = FastMCP(
     name=settings.server_name,
-    version=settings.version,
-    description=settings.description
+    version=settings.version
 )
 
 # ============================================================================
@@ -36,11 +81,10 @@ async def create_project(
     Returns:
         Project details including ID, settings, and cost estimate
     """
-    from .tools.project import create_project as impl
     # Convert string parameters to proper types if needed
     if target_duration is not None and isinstance(target_duration, str):
         target_duration = int(target_duration)
-    return await impl(title, platform, script, target_duration, aspect_ratio)
+    return await create_project_impl(title, platform, script, target_duration, aspect_ratio)
 
 
 @mcp.tool()
@@ -62,13 +106,12 @@ async def add_scene(
     Returns:
         Scene details with ID and timeline position
     """
-    from .tools.project import add_scene as impl
     # Convert string parameters to proper types if needed
     if isinstance(duration, str):
         duration = int(duration)
     if position is not None and isinstance(position, str):
         position = int(position)
-    return await impl(project_id, description, duration, position)
+    return await add_scene_impl(project_id, description, duration, position)
 
 
 @mcp.tool()
@@ -79,8 +122,7 @@ async def list_projects() -> Dict[str, Any]:
     Returns:
         List of projects with basic info and status
     """
-    from .tools.project import list_projects as impl
-    return await impl()
+    return await list_projects_impl()
 
 
 # ============================================================================
@@ -110,72 +152,47 @@ async def generate_image_from_text(
     Returns:
         Generated image URL and metadata
     """
-    from .tools.generation import generate_image_from_text as impl
-    return await impl(prompt, model, aspect_ratio, style_modifiers, project_id, scene_id)
-
-
-# ============================================================================
-# ASSEMBLY TOOLS
-# ============================================================================
-
-@mcp.tool()
-async def download_assets(
-    asset_urls: List[str],
-    project_id: str,
-    asset_type: Optional[str] = None,
-    parallel_downloads: int = 5
-) -> Dict[str, Any]:
-    """
-    Download generated assets from FAL or other sources.
+    # Handle case where style_modifiers is passed as JSON string
+    if style_modifiers is not None and isinstance(style_modifiers, str):
+        try:
+            style_modifiers = json.loads(style_modifiers)
+        except:
+            # If JSON parsing fails, treat as a single modifier
+            style_modifiers = [style_modifiers]
     
-    Args:
-        asset_urls: List of URLs to download
-        project_id: Project to associate assets with
-        asset_type: Type of assets (image, video, audio)
-        parallel_downloads: Max concurrent downloads (agent handles download tasks)
-    
-    Returns:
-        Download summary and local paths
-    """
-    from .tools.assembly import download_assets as impl
-    # Convert string parameters to proper types if needed
-    if isinstance(parallel_downloads, str):
-        parallel_downloads = int(parallel_downloads)
-    return await impl(asset_urls, project_id, asset_type, parallel_downloads)
+    return await generate_image_from_text_impl(
+        prompt, model, aspect_ratio, style_modifiers, project_id, scene_id
+    )
 
 
 @mcp.tool()
-async def add_audio_track(
-    video_path: str,
-    audio_path: str,
-    track_type: str = "background",
-    volume_adjustment: float = 1.0,
-    fade_in: float = 0.0,
-    fade_out: float = 0.0
+async def generate_image_from_image(
+    image_url: str,
+    prompt: str,
+    safety_tolerance: str = "3",
+    project_id: Optional[str] = None,
+    scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Add audio track to video without re-encoding video stream.
+    Transform an image based on a text prompt using AI.
+    Uses Flux Kontext with fixed guidance scale of 3.5 for optimal results.
     
     Args:
-        video_path: Path to video file
-        audio_path: Path to audio file
-        track_type: Type of audio (background, voiceover, sfx, music)
-        volume_adjustment: Volume multiplier (0.0-2.0)
-        fade_in: Fade in duration in seconds
-        fade_out: Fade out duration in seconds
-    
+        image_url: Source image - can be a URL or local file path
+        prompt: Text description of the transformation to apply
+        safety_tolerance: Safety filter level (1-6, default 3. 1=strictest, 6=most permissive)
+        project_id: Optional project to associate the image with
+        scene_id: Optional scene within the project
+        
     Returns:
-        Output path with mixed audio
+        Dict with transformed image results
     """
-    from .tools.assembly import add_audio_track as impl
-    # Convert string parameters to proper types if needed
-    if isinstance(volume_adjustment, str):
-        volume_adjustment = float(volume_adjustment)
-    if isinstance(fade_in, str):
-        fade_in = float(fade_in)
-    if isinstance(fade_out, str):
-        fade_out = float(fade_out)
-    return await impl(video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out)
+    # Convert safety_tolerance to int if it's a string
+    if isinstance(safety_tolerance, str):
+        safety_tolerance = int(safety_tolerance)
+    return await generate_image_from_image_impl(
+        image_url, prompt, safety_tolerance, project_id, scene_id
+    )
 
 
 # ============================================================================
@@ -188,11 +205,13 @@ async def generate_video_from_image(
     motion_prompt: str,
     duration: int = 5,
     aspect_ratio: str = "16:9",
-    motion_strength: float = 0.7,
     model: Optional[str] = None,
+    motion_strength: float = 0.7,
     prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
-    scene_id: Optional[str] = None
+    scene_id: Optional[str] = None,
+    use_queue: bool = True,
+    return_queue_id: bool = False
 ) -> Dict[str, Any]:
     """
     Convert a single image to video with AI-generated motion.
@@ -201,25 +220,28 @@ async def generate_video_from_image(
         image_url: URL or local path of the source image
         motion_prompt: Description of desired motion/animation
         duration: Video duration in seconds (5 or 10 for Kling, 6 or 10 for Hailuo)
-        aspect_ratio: Output video aspect ratio
+        aspect_ratio: Video aspect ratio
         motion_strength: Motion intensity (0.0-1.0) - only used for Kling model
         model: Video generation model ("kling_2.1" or "hailuo_02"). Defaults to settings
         prompt_optimizer: Whether to use prompt optimization - only used for Hailuo model
         project_id: Optional project to associate with
         scene_id: Optional scene to associate with
+        use_queue: Whether to use queued processing for better tracking (default: True)
+        return_queue_id: Return queue ID immediately without waiting for result
     
     Returns:
-        Generated video URL and metadata
+        Generated video URL and metadata, or queue ID if return_queue_id=True
     """
-    from .tools.generation import generate_video_from_image as impl
     # Convert string parameters to proper types if needed
     if isinstance(duration, str):
         duration = int(duration)
     if isinstance(motion_strength, str):
         motion_strength = float(motion_strength)
-    if isinstance(prompt_optimizer, str):
-        prompt_optimizer = prompt_optimizer.lower() == "true"
-    return await impl(image_url, motion_prompt, duration, aspect_ratio, motion_strength, model, prompt_optimizer, project_id, scene_id)
+    return await generate_video_from_image_impl(
+        image_url, motion_prompt, duration, aspect_ratio, 
+        motion_strength, model, prompt_optimizer, project_id, scene_id,
+        use_queue, return_queue_id
+    )
 
 
 # ============================================================================
@@ -243,11 +265,9 @@ async def generate_music(
     Returns:
         Generated music URL and metadata
     """
-    from .tools.generation import generate_music as impl
-    # Convert string parameters to proper types if needed
     if isinstance(duration, str):
         duration = int(duration)
-    return await impl(prompt, duration, project_id)
+    return await generate_music_impl(prompt, duration, project_id)
 
 
 @mcp.tool()
@@ -271,48 +291,129 @@ async def generate_speech(
     Returns:
         Generated speech audio URL and metadata
     """
-    from .tools.generation import generate_speech as impl
-    # Convert string parameters to proper types if needed
     if isinstance(speed, str):
         speed = float(speed)
-    return await impl(text, voice, speed, project_id, scene_id)
+    return await generate_speech_impl(text, voice, speed, project_id, scene_id)
+
+
+# ============================================================================
+# QUEUE MANAGEMENT TOOLS
+# ============================================================================
+
+@mcp.tool()
+async def get_queue_status(
+    task_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    status_filter: Optional[List[str]] = None,
+    include_completed: bool = False
+) -> Dict[str, Any]:
+    """
+    Get status of queued generation tasks.
+    
+    Args:
+        task_id: Specific task ID to check
+        project_id: Filter by project ID
+        status_filter: Filter by status (queued, in_progress, completed, failed, cancelled)
+        include_completed: Include completed/failed/cancelled tasks (default: False)
+    
+    Returns:
+        Queue status information with task details
+    """
+    # Handle case where status_filter is passed as JSON string
+    if status_filter is not None and isinstance(status_filter, str):
+        try:
+            status_filter = json.loads(status_filter)
+        except:
+            # If JSON parsing fails, treat as a single status
+            status_filter = [status_filter]
+    
+    return await get_queue_status_impl(task_id, project_id, status_filter, include_completed)
 
 
 @mcp.tool()
-async def generate_image_from_image(
-    image_url: str,
-    prompt: str,
-    safety_tolerance: int = 3,
-    project_id: Optional[str] = None,
-    scene_id: Optional[str] = None
-) -> Dict[str, Any]:
+async def cancel_task(task_id: str) -> Dict[str, Any]:
     """
-    Transform an image based on a text prompt using AI.
-    Uses Flux Kontext with fixed guidance scale of 3.5 for optimal results.
+    Cancel a queued or running generation task.
     
     Args:
-        image_url: Source image - can be a URL or local file path
-        prompt: Text description of the transformation to apply
-        safety_tolerance: Safety filter level (1-6, default 3. 1=strictest, 6=most permissive)
-        project_id: Optional project to associate the image with
-        scene_id: Optional scene within the project
-        
+        task_id: Task ID to cancel
+    
     Returns:
-        Dict with transformed image results
+        Cancellation result
     """
-    from .tools.generation import generate_image_from_image as impl
+    return await cancel_task_impl(task_id)
+
+
+# ============================================================================
+# ASSEMBLY AND DOWNLOAD TOOLS
+# ============================================================================
+
+@mcp.tool()
+async def download_assets(
+    asset_urls: List[str],
+    project_id: str,
+    asset_type: Optional[str] = None,
+    parallel_downloads: int = 5
+) -> Dict[str, Any]:
+    """
+    Download generated assets from FAL or other sources.
+    
+    Args:
+        asset_urls: List of URLs to download
+        project_id: Project to associate assets with
+        asset_type: Type of assets (image, video, audio)
+        parallel_downloads: Max concurrent downloads (agent handles download tasks)
+    
+    Returns:
+        Download summary and local paths
+    """
+    # Handle case where asset_urls is passed as JSON string
+    if isinstance(asset_urls, str):
+        try:
+            asset_urls = json.loads(asset_urls)
+        except:
+            # If JSON parsing fails, treat as a single URL
+            asset_urls = [asset_urls]
+    
+    if isinstance(parallel_downloads, str):
+        parallel_downloads = int(parallel_downloads)
+    return await download_assets_impl(asset_urls, project_id, asset_type, parallel_downloads)
+
+
+@mcp.tool()
+async def add_audio_track(
+    video_path: str,
+    audio_path: str,
+    track_type: str = "background",
+    volume_adjustment: float = 1.0,
+    fade_in: float = 0,
+    fade_out: float = 0
+) -> Dict[str, Any]:
+    """
+    Add audio track to video without re-encoding video stream.
+    
+    Args:
+        video_path: Path to video file
+        audio_path: Path to audio file
+        track_type: Type of audio (background, voiceover, sfx, music)
+        volume_adjustment: Volume multiplier (0.0-2.0)
+        fade_in: Fade in duration in seconds
+        fade_out: Fade out duration in seconds
+    
+    Returns:
+        Output path with mixed audio
+    """
     # Convert string parameters to proper types if needed
-    if isinstance(safety_tolerance, str):
-        safety_tolerance = int(safety_tolerance)
-    return await impl(image_url, prompt, safety_tolerance, project_id, scene_id)
+    if isinstance(volume_adjustment, str):
+        volume_adjustment = float(volume_adjustment)
+    if isinstance(fade_in, str):
+        fade_in = float(fade_in)
+    if isinstance(fade_out, str):
+        fade_out = float(fade_out)
+    return await add_audio_track_impl(
+        video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out
+    )
 
-
-# Batch generation removed - use individual tools in parallel instead
-
-
-# ============================================================================
-# ASSEMBLY TOOLS
-# ============================================================================
 
 @mcp.tool()
 async def assemble_video(
@@ -333,102 +434,7 @@ async def assemble_video(
     Returns:
         Assembled video path and metadata
     """
-    from .tools.assembly import assemble_video as impl
-    return await impl(project_id, scene_ids, output_format, quality_preset)
-
-
-# ============================================================================
-# PROJECT RESOURCES
-# ============================================================================
-
-@mcp.resource("project://current")
-async def get_current_project_resource() -> Dict[str, Any]:
-    """Get the currently active project details."""
-    from .resources import get_current_project
-    return await get_current_project()
-
-
-@mcp.resource("project://{project_id}/timeline")
-async def get_project_timeline(project_id: str) -> Dict[str, Any]:
-    """Get the scene timeline for a project."""
-    from .resources import get_project_timeline
-    return await get_project_timeline(project_id)
-
-
-@mcp.resource("project://{project_id}/costs")
-async def get_cost_breakdown(project_id: str) -> Dict[str, Any]:
-    """Get detailed cost breakdown for a project."""
-    from .resources import get_cost_breakdown
-    return await get_cost_breakdown(project_id)
-
-
-@mcp.resource("platform://{platform_name}/specs")
-async def get_platform_specs(platform_name: str) -> Dict[str, Any]:
-    """Get specifications and recommendations for a platform."""
-    from .resources import get_platform_specs
-    return await get_platform_specs(platform_name)
-
-
-# ============================================================================
-# WORKFLOW PROMPTS
-# ============================================================================
-
-@mcp.prompt()
-async def video_creation_wizard(platform: str, topic: str) -> str:
-    """
-    Start an interactive video creation workflow.
-    
-    Args:
-        platform: Target platform (youtube, tiktok, etc.)
-        topic: Video topic/theme
-    
-    Returns:
-        Guided workflow instructions
-    """
-    from .prompts import video_creation_wizard as impl
-    return await impl(platform, topic)
-
-
-@mcp.prompt()
-async def script_to_scenes(project_id: str) -> str:
-    """
-    Convert project script into optimized scene breakdown.
-    
-    Args:
-        project_id: Project ID with script
-    
-    Returns:
-        Scene planning guidance
-    """
-    from .prompts import script_to_scenes as impl
-    return await impl(project_id)
-
-
-@mcp.prompt()
-async def list_video_agent_capabilities() -> str:
-    """
-    List all available MCP server capabilities and provide getting started guide.
-    
-    Returns:
-        Comprehensive guide of all tools, resources, and prompts
-    """
-    from .prompts import list_video_agent_capabilities as impl
-    return await impl()
-
-
-@mcp.prompt()
-async def cinematic_photography_guide() -> str:
-    """
-    Professional cinematography guide for creating high-quality, cinematic visuals.
-    
-    Provides camera models, lenses, movements, and lighting techniques to enhance
-    AI-generated images and videos with authentic photographic aesthetics.
-    
-    Returns:
-        Comprehensive guide with examples and platform-specific recommendations
-    """
-    from .prompts import cinematic_photography_guide as impl
-    return await impl()
+    return await assemble_video_impl(project_id, scene_ids, output_format, quality_preset)
 
 
 # ============================================================================
@@ -452,11 +458,9 @@ async def analyze_script(
     Returns:
         Analysis with scene suggestions, duration estimates, and key moments
     """
-    from .tools.utility import analyze_script as impl
-    # Convert string parameters to proper types if needed
     if target_duration is not None and isinstance(target_duration, str):
         target_duration = int(target_duration)
-    return await impl(script, target_duration, platform)
+    return await analyze_script_impl(script, target_duration, platform)
 
 
 @mcp.tool()
@@ -474,8 +478,7 @@ async def suggest_scenes(
     Returns:
         List of scene suggestions with descriptions
     """
-    from .tools.utility import suggest_scenes as impl
-    return await impl(project_id, style)
+    return await suggest_scenes_impl(project_id, style)
 
 
 @mcp.tool()
@@ -489,11 +492,9 @@ async def upload_image_file(file_path: str) -> Dict[str, Any]:
     Returns:
         Dict with upload results including the URL
     """
-    from .tools.utility import upload_image_file as impl
-    return await impl(file_path)
+    return await upload_image_file_impl(file_path)
 
 
-# Simplified tool for testing
 @mcp.tool()
 async def get_server_info() -> Dict[str, Any]:
     """Get information about the Video Agent server."""
@@ -505,6 +506,127 @@ async def get_server_info() -> Dict[str, Any]:
         "fal_api_configured": bool(settings.fal_api_key)
     }
 
+
+# ============================================================================
+# RESOURCES
+# ============================================================================
+
+@mcp.resource("project://current")
+async def resource_current_project() -> Dict[str, Any]:
+    """Get the currently active project details."""
+    return await get_current_project()
+
+
+@mcp.resource("project://{project_id}/timeline")
+async def resource_project_timeline(project_id: str) -> Dict[str, Any]:
+    """Get detailed timeline for a specific project."""
+    return await get_project_timeline(project_id)
+
+
+@mcp.resource("project://{project_id}/costs")
+async def resource_cost_breakdown(project_id: str) -> Dict[str, Any]:
+    """Get detailed cost breakdown for a project."""
+    return await get_cost_breakdown(project_id)
+
+
+@mcp.resource("platform://{platform}/specs")
+async def resource_platform_specs(platform: str) -> Dict[str, Any]:
+    """Get specifications and recommendations for a platform."""
+    return await get_platform_specs(platform)
+
+
+@mcp.resource("queue://status")
+async def resource_queue_status() -> Dict[str, Any]:
+    """Get overall queue status and statistics."""
+    return await get_queue_status_resource(["status"])
+
+
+@mcp.resource("queue://task/{task_id}")
+async def resource_queue_task(task_id: str) -> Dict[str, Any]:
+    """Get status of a specific queued task."""
+    return await get_queue_status_resource(["task", task_id])
+
+
+@mcp.resource("queue://project/{project_id}")
+async def resource_queue_project(project_id: str) -> Dict[str, Any]:
+    """Get queue status for all tasks in a project."""
+    return await get_queue_status_resource(["project", project_id])
+
+
+# ============================================================================
+# PROMPTS
+# ============================================================================
+
+@mcp.prompt("video_creation_wizard")
+async def prompt_video_creation_wizard(
+    platform: str,
+    topic: str
+) -> List[Dict[str, Any]]:
+    """
+    Interactive wizard for creating videos from scratch.
+    
+    Args:
+        platform: Target platform (youtube, tiktok, etc.)
+        topic: Video topic or theme
+    
+    Returns:
+        List of messages for the video creation workflow
+    """
+    return await video_creation_wizard(platform, topic)
+
+
+@mcp.prompt("script_to_scenes")
+async def prompt_script_to_scenes(
+    script: str,
+    target_duration: int,
+    style: str = "dynamic"
+) -> List[Dict[str, Any]]:
+    """
+    Convert a script into detailed scene breakdowns.
+    
+    Args:
+        script: The video script
+        target_duration: Target video duration in seconds
+        style: Visual style (dynamic, minimal, cinematic)
+    
+    Returns:
+        List of messages with scene breakdowns
+    """
+    return await script_to_scenes(script, target_duration, style)
+
+
+@mcp.prompt("cinematic_photography_guide")
+async def prompt_cinematic_photography_guide(
+    scene_type: str,
+    mood: str
+) -> List[Dict[str, Any]]:
+    """
+    Get cinematic photography guidance for scenes.
+    
+    Args:
+        scene_type: Type of scene (dialogue, action, landscape, etc.)
+        mood: Desired mood (dramatic, peaceful, energetic, etc.)
+    
+    Returns:
+        List of messages with cinematic guidance
+    """
+    return await cinematic_photography_guide(scene_type, mood)
+
+
+@mcp.prompt("list_video_agent_capabilities")
+async def prompt_list_capabilities() -> List[Dict[str, Any]]:
+    """
+    List all Video Agent capabilities and features.
+    
+    Returns:
+        List of messages describing capabilities
+    """
+    return await list_video_agent_capabilities()
+
+
+# ============================================================================
+# SERVER ENTRY POINT
+# ============================================================================
 
 def get_server():
     """Get the MCP server instance."""

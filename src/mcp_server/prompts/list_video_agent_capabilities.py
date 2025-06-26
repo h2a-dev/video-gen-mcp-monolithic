@@ -1,40 +1,96 @@
 """List Video Agent capabilities prompt implementation."""
 
 
-async def list_video_agent_capabilities() -> str:
+async def list_video_agent_capabilities() -> list:
     """List all available MCP server capabilities and provide getting started guide."""
     
     # This returns a comprehensive hardcoded list of all server capabilities
     # In production, this could be generated dynamically from server introspection
     
-    return """# 🎬 Video Agent MCP Server Capabilities
+    content = """# 🎬 Video Agent MCP Server for Claude Code
 
-## 📝 Prompts
-Interactive workflows and creation guides:
+This guide helps you use the Video Agent MCP server through Claude Code. All tools must be invoked with the `mcp__video-agent__` prefix.
 
-• **video_creation_wizard** (platform, topic) - Complete video creation workflow from concept to export
-• **script_to_scenes** (project_id) - Convert script into optimized scene breakdown with timing
-• **cinematic_photography_guide** () - Professional camera techniques for cinematic visuals
-• **list_video_agent_capabilities** () - This comprehensive guide you're reading now!
+## 🚀 Quick Start for Claude Code
 
-## 🔧 Tools
-Video creation and manipulation functions:
+### Simple Video Creation
+```json
+// Use the video creation wizard for guided workflow
+{
+  "tool": "mcp__video-agent__video_creation_wizard",
+  "parameters": {
+    "platform": "tiktok",
+    "topic": "cooking tips"
+  }
+}
+```
+
+### Create a Project
+```json
+{
+  "tool": "mcp__video-agent__create_project",
+  "parameters": {
+    "title": "My First Video",
+    "platform": "youtube_shorts",
+    "script": "Welcome to my channel! Today we'll learn...",
+    "target_duration": 60
+  }
+}
+```
+
+## 📝 Available Prompts (Interactive Workflows)
+
+• **mcp__video-agent__video_creation_wizard** - Complete video creation workflow
+• **mcp__video-agent__script_to_scenes** - Convert script to scene breakdown
+• **mcp__video-agent__cinematic_photography_guide** - Camera techniques guide
+• **mcp__video-agent__list_video_agent_capabilities** - This guide
+
+## 🔧 Tools Reference
+All tools use the `mcp__video-agent__` prefix when invoked through Claude Code.
 
 ### Project Management
-• **create_project** (title, platform, script, target_duration, aspect_ratio) - Initialize new video project with platform defaults
-• **add_scene** (project_id, description, duration, position) - Add scene to project timeline
-• **list_projects** () - View all video projects with status and costs
+
+#### mcp__video-agent__create_project
+Initialize a new video project with platform-specific defaults.
+```json
+{
+  "title": "string",
+  "platform": "youtube|tiktok|instagram_reel|etc",
+  "script": "optional script text",
+  "target_duration": 60,
+  "aspect_ratio": "16:9|9:16|1:1"
+}
+```
+
+#### mcp__video-agent__add_scene
+Add a scene to your project timeline.
+```json
+{
+  "project_id": "project-uuid",
+  "description": "Scene description for AI generation",
+  "duration": 5,
+  "position": null  // null appends to end
+}
+```
+
+#### mcp__video-agent__list_projects
+View all projects with their status.
+```json
+{}  // No parameters required
+```
 
 ### Content Generation
 • **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
 • **generate_image_from_image** (image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id) - Transform images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
   - Safety tolerance: 1-6 (default 3, higher = more permissive)
-• **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, model, prompt_optimizer, project_id, scene_id) - Animate still images with AI
+• **generate_video_from_image** (image_url, motion_prompt, duration, aspect_ratio, motion_strength, model, prompt_optimizer, project_id, scene_id, use_queue, return_queue_id) - Animate still images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
   - Models: "kling_2.1" (5 or 10 sec) or "hailuo_02" (6 or 10 sec)
   - Motion strength: Only for Kling model (0.1-1.0)
   - Prompt optimizer: Only for Hailuo model (default True)
+  - **NEW**: use_queue (default True) - Use queue tracking for better monitoring
+  - **NEW**: return_queue_id - Return immediately with queue ID for non-blocking generation
 • **generate_music** (prompt, duration, project_id) - Generate background music (~95 seconds)
 • **generate_speech** (text, voice, speed, project_id, scene_id) - Text-to-speech with multiple voices
 
@@ -43,6 +99,13 @@ Video creation and manipulation functions:
 • **assemble_video** (project_id, scene_ids, output_format, quality_preset) - Combine scenes AND mix all audio tracks in one step (call only ONCE)
 • **add_audio_track** (video_path, audio_path, track_type, volume_adjustment, fade_in, fade_out) - Add audio to existing video (rarely needed)
 • **export_final_video** (project_id, platform, include_captions, include_watermark, output_path) - Create platform-optimized copy in exports folder (optional)
+
+### Queue Management Tools (NEW)
+• **get_queue_status** (task_id, project_id, status_filter, include_completed) - Monitor queued generation tasks
+  - Get specific task status by ID
+  - Filter by project or status
+  - Real-time progress and queue position
+• **cancel_task** (task_id) - Cancel a queued or running generation task
 
 ### Utility Tools
 • **analyze_script** (script, target_duration, platform) - Analyze script for scene suggestions and timing
@@ -60,6 +123,11 @@ Dynamic project and platform information:
 
 ### Platform Resources
 • **platform://{platform_name}/specs** - Platform requirements, limits, and best practices
+
+### Queue Resources (NEW)
+• **queue://status** - Overall queue statistics and active tasks
+• **queue://task/{task_id}** - Specific task status with logs and progress
+• **queue://project/{project_id}** - All tasks for a project
 
 ---
 
@@ -115,6 +183,11 @@ generate_video_from_image(your_image_url, "zoom in with dramatic effect", model=
 # Or from local file (auto-uploads):
 generate_video_from_image("/path/to/local/image.png", "pan left slowly", model="kling_2.1", duration=5)
 
+# NEW: Non-blocking generation with queue
+queue_id = generate_video_from_image(image_url, "dramatic zoom", duration=10, return_queue_id=True)
+# Check status later:
+status = get_queue_status(task_id=queue_id)
+
 # Transform existing images
 generate_image_from_image("/path/to/image.jpg", "make it more cinematic")
 generate_image_from_image(image_url, "add warm sunset lighting")
@@ -154,11 +227,13 @@ assemble_video(project_id)
 • **RECOMMENDED**: Process scenes sequentially for clear progress tracking
 • **IMPORTANT**: Generate voiceover FIRST for narrated videos - this ensures perfect audio-visual sync
 • **CRITICAL**: When user provides reference image URL, use `generate_image_from_image`, NOT `generate_image_from_text`
+• **NEW**: Use queue-based generation (`return_queue_id=True`) for batch processing or long videos
 • Start with `video_creation_wizard()` for guided workflows
 • Use `analyze_script()` to get voice recommendations and optimize timing
 • Account for frame trimming: videos will be ~0.5s shorter per scene transition
 • Check platform specs with `platform://specs` before generating
 • Monitor costs in real-time with `project://costs` resource
+• Monitor queue status with `queue://status` resource
 
 
 ### Platform-Specific Tips
@@ -243,7 +318,28 @@ video_creation_wizard("tiktok", "life hack")
 # → 3-6 scenes, fast cuts, trending music
 ```
 
-### 2. **Style-Consistent Content (with reference)**
+### 2. **Batch Video Processing (NEW)**
+```python
+# Submit multiple videos to queue
+queue_ids = []
+for scene in scenes:
+    queue_id = generate_video_from_image(
+        scene.image_url, 
+        scene.motion_prompt, 
+        duration=10,
+        return_queue_id=True  # Non-blocking
+    )
+    queue_ids.append(queue_id)
+
+# Monitor all at once
+status = get_queue_status(project_id=project_id)
+# Shows all tasks with progress
+
+# Cancel if needed
+cancel_task(queue_ids[0])
+```
+
+### 3. **Style-Consistent Content (with reference)**
 ```python
 # User provides reference image
 reference_image = "https://example.com/brand-style.jpg"
@@ -258,7 +354,7 @@ for scene in ["opening shot", "product showcase", "closing shot"]:
     generate_video_from_image(img_url, "smooth camera movement")
 ```
 
-### 3. **Educational Content (2-5min)**
+### 4. **Educational Content (2-5min)**
 ```python
 # Structured tutorial
 create_project("Python Tutorial", "youtube", script=tutorial_script)
@@ -266,7 +362,7 @@ analyze_script(tutorial_script, target_duration=180)
 # → Clear sections, voiceover, supporting visuals
 ```
 
-### 3. **Product Showcase (30-60s)**
+### 5. **Product Showcase (30-60s)**
 ```python
 # Highlight features
 create_project("Product Demo", "instagram_reel")
@@ -274,7 +370,7 @@ suggest_scenes(project_id, style="cinematic")
 # → Dynamic shots, professional look, call-to-action
 ```
 
-### 4. **Story/Narrative (1-3min)**
+### 6. **Story/Narrative (1-3min)**
 ```python
 # Emotional journey
 script_to_scenes(project_id)  # After adding script
@@ -333,6 +429,14 @@ script_to_scenes(project_id)  # After adding script
 • Scene reordering support
 • Transition planning
 
+### Queue Management (NEW)
+• Non-blocking generation with immediate queue ID return
+• Real-time progress tracking with queue position
+• Batch task monitoring by project
+• Task cancellation support
+• Automatic retry on failures
+• Detailed logs and status updates
+
 ### Asset Handling
 • Agent-managed downloads (up to 10 concurrent)
 • Automatic retries with FAL API error handling
@@ -355,3 +459,6 @@ script_to_scenes(project_id)  # After adding script
 4. **Platform Info**: Access `platform://{name}/specs` resource
 
 Remember: This is an MCP server - all interactions happen through Claude!"""
+    
+    # Return in FastMCP 2.0 format
+    return [{"role": "assistant", "content": content}]

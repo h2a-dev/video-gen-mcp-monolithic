@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-async def cinematic_photography_guide() -> str:
+async def cinematic_photography_guide(scene_type: str, mood: str) -> list:
     """Provide professional camera and cinematography guidance for enhanced visuals."""
     
     # Load the camera.md content if available
@@ -17,9 +17,11 @@ async def cinematic_photography_guide() -> str:
         except:
             camera_knowledge = ""
     
-    return f"""# 🎥 Cinematic Photography Guide for Video Creation
+    content = f"""# 🎥 Cinematic Photography Guide for {scene_type.title()} Scenes
 
-This guide helps you create professional, cinematic visuals using AI image and video generation tools.
+## Scene Type: {scene_type} | Mood: {mood}
+
+This guide helps you create professional, cinematic visuals specifically tailored for {scene_type} scenes with a {mood} mood.
 
 ## ⚠️ IMPORTANT: Camera Type Selection
 
@@ -236,3 +238,6 @@ Remember: Using the correct camera type creates more authentic and professional 
 
 {camera_knowledge}
 """
+    
+    # Return in FastMCP 2.0 format
+    return [{"role": "assistant", "content": content}]

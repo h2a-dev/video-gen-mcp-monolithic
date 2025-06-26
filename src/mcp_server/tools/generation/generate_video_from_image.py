@@ -1,6 +1,7 @@
 """Generate video from image tool implementation."""
 
 from typing import Dict, Any, Optional
+import asyncio
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_video_cost, settings
@@ -14,14 +15,59 @@ from ...utils import (
     handle_fal_api_error,
     process_image_input
 )
+from ...constants import VIDEO_MODELS, ASPECT_RATIOS
 
-# Valid aspect ratios for video generation
-VALID_ASPECT_RATIOS = {
-    "16:9": "Widescreen (YouTube, monitors)",
-    "9:16": "Vertical (TikTok, Reels, mobile)",
-    "1:1": "Square (Instagram posts)",
-    "4:5": "Portrait (Instagram posts)"
-}
+
+async def _parallel_asset_processing(
+    asset: Asset,
+    project_id: str,
+    result_url: str,
+    scene_update_func=None
+) -> Dict[str, Any]:
+    """
+    Process asset-related tasks in parallel where possible.
+    
+    Args:
+        asset: The asset to process
+        project_id: Project ID for association
+        result_url: URL of the generated asset
+        scene_update_func: Optional function to update scene
+    
+    Returns:
+        Dict with processing results
+    """
+    tasks = []
+    
+    # Task 1: Download asset
+    download_task = asset_storage.download_asset(
+        url=result_url,
+        project_id=project_id,
+        asset_id=asset.id,
+        asset_type="video"
+    )
+    tasks.append(("download", download_task))
+    
+    # Task 2: Update scene if function provided
+    if scene_update_func:
+        scene_task = scene_update_func()
+        tasks.append(("scene_update", scene_task))
+    
+    # Run tasks in parallel
+    results = {}
+    if tasks:
+        task_results = await asyncio.gather(
+            *[task for _, task in tasks],
+            return_exceptions=True
+        )
+        
+        for i, (task_name, _) in enumerate(tasks):
+            result = task_results[i]
+            if isinstance(result, Exception):
+                results[task_name] = {"success": False, "error": str(result)}
+            else:
+                results[task_name] = result
+    
+    return results
 
 
 async def generate_video_from_image(
@@ -33,7 +79,9 @@ async def generate_video_from_image(
     model: Optional[str] = None,
     prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
-    scene_id: Optional[str] = None
+    scene_id: Optional[str] = None,
+    use_queue: bool = True,
+    return_queue_id: bool = False
 ) -> Dict[str, Any]:
     """
     Convert a single image to video with AI-generated motion.
@@ -48,9 +96,11 @@ async def generate_video_from_image(
         prompt_optimizer: Whether to use prompt optimization - only used for Hailuo model
         project_id: Optional project to associate with
         scene_id: Optional scene to associate with
+        use_queue: Whether to use queued processing for better tracking (default: True)
+        return_queue_id: Return queue ID immediately without waiting for result
     
     Returns:
-        Dict with video generation results
+        Dict with video generation results or queue ID if return_queue_id=True
     """
     try:
         # Validate and process image input (URL or file path)
@@ -76,20 +126,18 @@ async def generate_video_from_image(
             model = settings.default_video_model
         
         # Validate model
-        if model not in ["kling_2.1", "hailuo_02"]:
+        if model not in VIDEO_MODELS:
             return create_error_response(
                 ErrorType.VALIDATION_ERROR,
                 f"Invalid model: {model}",
-                details={"parameter": "model", "valid_models": ["kling_2.1", "hailuo_02"]},
-                suggestion="Choose either 'kling_2.1' or 'hailuo_02' for video generation",
-                example="model='hailuo_02'"
+                details={"parameter": "model", "valid_models": list(VIDEO_MODELS.keys())},
+                suggestion=f"Choose one of: {', '.join(VIDEO_MODELS.keys())}",
+                example=f"model='{list(VIDEO_MODELS.keys())[0]}'"
             )
         
-        # Validate duration based on model
-        if model == "kling_2.1":
-            valid_durations = [5, 10]
-        else:  # hailuo_02
-            valid_durations = [6, 10]
+        # Get model configuration
+        model_config = VIDEO_MODELS[model]
+        valid_durations = model_config["valid_durations"]
         
         duration_validation = validate_duration(duration, valid_durations=valid_durations)
         if not duration_validation["valid"]:
@@ -103,44 +151,118 @@ async def generate_video_from_image(
         duration = duration_validation["value"]
         
         # Validate aspect ratio
-        ratio_validation = validate_aspect_ratio(aspect_ratio, VALID_ASPECT_RATIOS)
+        ratio_validation = validate_aspect_ratio(aspect_ratio, ASPECT_RATIOS)
         if not ratio_validation["valid"]:
             return ratio_validation["error_response"]
         
-        # Validate motion strength (only for Kling model)
-        if model == "kling_2.1":
+        # Validate motion strength (only for models that support it)
+        if "motion_strength" in model_config.get("supports", []):
+            min_strength = model_config.get("min_motion_strength", 0.1)
+            max_strength = model_config.get("max_motion_strength", 1.0)
             strength_validation = validate_range(
-                motion_strength, "motion_strength", 0.1, 1.0, "Motion strength"
+                motion_strength, "motion_strength", min_strength, max_strength, "Motion strength"
             )
             if not strength_validation["valid"]:
                 return strength_validation["error_response"]
             motion_strength = strength_validation["value"]
         
-        # Generate the video with model-specific parameters
-        kwargs = {
-            "image_url": processed_image_url,
-            "motion_prompt": motion_prompt,
-            "duration": duration,
-            "aspect_ratio": aspect_ratio,
-            "model": model
-        }
+        # Calculate cost early for queue response
+        cost = calculate_video_cost(model, duration)
         
-        # Add model-specific parameters
-        if model == "kling_2.1":
-            kwargs["motion_strength"] = motion_strength
-        else:  # hailuo_02
-            kwargs["prompt_optimizer"] = prompt_optimizer
-        
-        result = await fal_service.generate_video_from_image(**kwargs)
+        # Use queued processing if requested
+        if use_queue:
+            # Prepare FAL arguments
+            fal_arguments = {
+                "prompt": motion_prompt,
+                "image_url": processed_image_url,
+                "duration": str(duration),  # FAL expects string
+                "aspect_ratio": aspect_ratio
+            }
+            
+            # Add model-specific arguments
+            if model == "kling_2.1" and "motion_strength" in model_config.get("supports", []):
+                fal_arguments["motion_strength"] = motion_strength
+            elif model == "hailuo_02" and "prompt_optimizer" in model_config.get("supports", []):
+                fal_arguments["prompt_optimizer"] = prompt_optimizer
+            
+            # Submit to queue
+            queue_id = await fal_service.submit_generation(
+                model_id=model_config["fal_model_id"],
+                arguments=fal_arguments,
+                task_type="video",
+                project_id=project_id,
+                scene_id=scene_id,
+                metadata={
+                    "cost": cost,
+                    "source_image": image_url,
+                    "motion_prompt": motion_prompt,
+                    "duration": duration,
+                    "aspect_ratio": aspect_ratio,
+                    "model": model
+                }
+            )
+            
+            # Return queue ID immediately if requested
+            if return_queue_id:
+                return {
+                    "success": True,
+                    "queued": True,
+                    "queue_id": queue_id,
+                    "message": f"Video generation queued (model: {model})",
+                    "estimated_cost": cost,
+                    "estimated_duration": duration,
+                    "check_status": f"Use get_queue_status(task_id='{queue_id}') to check progress"
+                }
+            
+            # Otherwise wait for completion
+            result = await fal_service.wait_for_task(queue_id, timeout=settings.generation_timeout)
+            
+            if not result["success"]:
+                return handle_fal_api_error(Exception(result["error"]), "video generation")
+            
+            # Extract the actual result from queue response
+            queue_result = result.get("result", {})
+            # Convert to expected format
+            video_url = None
+            if isinstance(queue_result, dict):
+                video_url = queue_result.get("video", {}).get("url") or queue_result.get("url") or queue_result.get("output_url")
+            
+            if not video_url:
+                return create_error_response(
+                    ErrorType.GENERATION_ERROR,
+                    "No video URL found in generation result",
+                    details={"result": queue_result}
+                )
+            
+            result = {
+                "success": True,
+                "url": video_url,
+                "metadata": queue_result
+            }
+        else:
+            # Use direct generation (legacy mode)
+            # Generate the video with model-specific parameters
+            kwargs = {
+                "image_url": processed_image_url,
+                "motion_prompt": motion_prompt,
+                "duration": duration,
+                "aspect_ratio": aspect_ratio,
+                "model": model
+            }
+            
+            # Add model-specific parameters based on what the model supports
+            if "motion_strength" in model_config.get("supports", []):
+                kwargs["motion_strength"] = motion_strength
+            if "prompt_optimizer" in model_config.get("supports", []):
+                kwargs["prompt_optimizer"] = prompt_optimizer
+            
+            result = await fal_service.generate_video_from_image(**kwargs)
         
         if not result["success"]:
             # If it's an API error, provide helpful context
             if "error" in result:
                 return handle_fal_api_error(Exception(result["error"]), "video generation")
             return result
-        
-        # Calculate cost based on model
-        cost = calculate_video_cost(model, duration)
         
         # Create asset record
         metadata = {
@@ -159,11 +281,11 @@ async def generate_video_from_image(
             "model": model
         }
         
-        # Add model-specific metadata
-        if model == "kling_2.1":
+        # Add model-specific metadata based on what the model supports
+        if "motion_strength" in model_config.get("supports", []):
             metadata["motion_strength"] = motion_strength
             generation_params["motion_strength"] = motion_strength
-        else:  # hailuo_02
+        if "prompt_optimizer" in model_config.get("supports", []):
             metadata["prompt_optimizer"] = prompt_optimizer
             generation_params["prompt_optimizer"] = prompt_optimizer
         
@@ -199,18 +321,25 @@ async def generate_video_from_image(
                     scene.duration = duration
                 
                 scene.assets.append(asset)
-                project.total_cost = project.calculate_cost()
-                project.actual_duration = project.calculate_duration()
-                project.updated_at = asset.created_at
                 
-                # Download the asset
-                download_result = await asset_storage.download_asset(
-                    url=result["url"],
+                # Define scene update function
+                async def update_scene():
+                    project.total_cost = project.calculate_cost()
+                    project.actual_duration = project.calculate_duration()
+                    project.updated_at = asset.created_at
+                    return {"success": True}
+                
+                # Process asset and update scene in parallel
+                parallel_results = await _parallel_asset_processing(
+                    asset=asset,
                     project_id=project_id,
-                    asset_id=asset.id,
-                    asset_type="video"
+                    result_url=result["url"],
+                    scene_update_func=update_scene
                 )
-                if download_result["success"]:
+                
+                # Update asset with download result
+                download_result = parallel_results.get("download", {})
+                if download_result.get("success"):
                     asset.local_path = download_result["local_path"]
         
         return {
@@ -229,7 +358,10 @@ async def generate_video_from_image(
                 "duration": duration,
                 "aspect_ratio": aspect_ratio,
                 "source_image": image_url,
-                **({"motion_strength": motion_strength} if model == "kling_2.1" else {"prompt_optimizer": prompt_optimizer})
+                **({k: v for k, v in [
+                    ("motion_strength", motion_strength) if "motion_strength" in model_config.get("supports", []) else (None, None),
+                    ("prompt_optimizer", prompt_optimizer) if "prompt_optimizer" in model_config.get("supports", []) else (None, None)
+                ] if k is not None})
             },
             "project_association": {
                 "project_id": project_id,

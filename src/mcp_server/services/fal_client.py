@@ -9,6 +9,7 @@ import time
 import fal_client
 from pathlib import Path
 from ..config import settings
+from .file_upload_cache import FileUploadCache
 
 
 class FALClient:
@@ -21,6 +22,12 @@ class FALClient:
         
         # Configure fal_client
         os.environ["FAL_KEY"] = self.api_key
+        
+        # HTTP client for connection pooling
+        self._http_client = None
+        
+        # File upload cache
+        self._upload_cache = FileUploadCache(max_size=100, ttl_hours=24)
         
         # Retry configuration
         self.max_retries = 3
@@ -292,28 +299,23 @@ class FALClient:
         )
     
     async def upload_file(self, file_path: str) -> Dict[str, Any]:
-        """Upload a file to FAL and get a URL."""
-        try:
-            path = Path(file_path)
-            if not path.exists():
-                raise ValueError(f"File not found: {file_path}")
-            
-            if not path.is_file():
-                raise ValueError(f"Path is not a file: {file_path}")
-            
-            # Upload file and get URL
-            url = await fal_client.upload_file_async(str(path))
-            
-            return {
-                "success": True,
-                "url": url,
-                "original_path": file_path
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+        """Upload a file to FAL and get a URL, using cache to avoid duplicates."""
+        async def _do_upload(path: str) -> Dict[str, Any]:
+            """Inner function that performs the actual upload."""
+            try:
+                url = await fal_client.upload_file_async(path)
+                return {
+                    "success": True,
+                    "url": url
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": str(e)
+                }
+        
+        # Use cache for the upload
+        return await self._upload_cache.get_or_upload(file_path, _do_upload)
 
     async def _run_with_queue(self, model_id: str, arguments: Dict[str, Any], progress_callback=None) -> Dict[str, Any]:
         """Run FAL model using queue-based processing with polling."""
@@ -435,6 +437,271 @@ class FALClient:
     async def _run_with_retry(self, model_id: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Run FAL model with retry logic and error handling - now uses queue-based processing."""
         return await self._run_with_queue(model_id, arguments)
+    
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        """Get or create HTTP client with connection pooling"""
+        if not self._http_client:
+            self._http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0, connect=5.0),
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            )
+        return self._http_client
+    
+    async def cleanup(self):
+        """Clean up resources - call this when shutting down"""
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get upload cache statistics."""
+        return self._upload_cache.get_stats()
+    
+    # Queue-based submission methods
+    
+    async def submit_generation(
+        self,
+        model_id: str,
+        arguments: Dict[str, Any],
+        task_type: str,
+        project_id: Optional[str] = None,
+        scene_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Submit a generation task and return queue ID."""
+        from ..models import queue_manager
+        
+        # Create queue task
+        task = await queue_manager.create_task(
+            task_type=task_type,
+            model=model_id,
+            arguments=arguments,
+            project_id=project_id,
+            scene_id=scene_id,
+            metadata=metadata
+        )
+        
+        # Start async processing
+        asyncio_task = asyncio.create_task(
+            self._process_queued_task(task.id, model_id, arguments)
+        )
+        await queue_manager.register_active_task(task.id, asyncio_task)
+        
+        return task.id
+    
+    async def _process_queued_task(
+        self,
+        task_id: str,
+        model_id: str,
+        arguments: Dict[str, Any]
+    ):
+        """Process a queued task with status updates."""
+        from ..models import queue_manager, QueueStatus
+        
+        try:
+            # Submit to FAL
+            handler = await fal_client.submit_async(model_id, arguments=arguments)
+            
+            # Update task with request ID
+            await queue_manager.update_task(
+                task_id,
+                request_id=handler.request_id
+            )
+            
+            # Process events
+            logs_index = 0
+            async for event in handler.iter_events(with_logs=True):
+                update_data = {}
+                
+                if isinstance(event, fal_client.Queued):
+                    update_data = {
+                        "status": QueueStatus.QUEUED,
+                        "queue_position": event.position
+                    }
+                    print(f"Task {task_id} queued at position {event.position}")
+                
+                elif isinstance(event, (fal_client.InProgress, fal_client.Completed)):
+                    if isinstance(event, fal_client.InProgress):
+                        update_data = {
+                            "status": QueueStatus.IN_PROGRESS,
+                            "started_at": datetime.now()
+                        }
+                    
+                    # Process new logs
+                    if hasattr(event, 'logs') and event.logs:
+                        new_logs = event.logs[logs_index:]
+                        logs_index = len(event.logs)
+                        
+                        # Extract progress from logs
+                        for log in new_logs:
+                            if isinstance(log, dict):
+                                if 'progress' in log:
+                                    update_data['progress_percentage'] = log['progress']
+                                if 'message' in log:
+                                    print(f"[FAL] {log['message']}")
+                        
+                        # Add logs to task
+                        task = await queue_manager.get_task(task_id)
+                        if task:
+                            task.logs.extend(new_logs)
+                
+                # Update task
+                if update_data:
+                    await queue_manager.update_task(task_id, **update_data)
+            
+            # Get final result
+            result = await handler.get()
+            
+            # Update task as completed
+            await queue_manager.update_task(
+                task_id,
+                status=QueueStatus.COMPLETED,
+                completed_at=datetime.now(),
+                result=result,
+                progress_percentage=100.0
+            )
+            
+            print(f"Task {task_id} completed successfully!")
+            
+            # Handle post-processing for video generation tasks
+            task = await queue_manager.get_task(task_id)
+            if task and task.task_type == "video" and task.project_id:
+                await self._process_video_completion(task, result)
+            
+        except asyncio.CancelledError:
+            # Task was cancelled
+            await queue_manager.update_task(
+                task_id,
+                status=QueueStatus.CANCELLED,
+                completed_at=datetime.now(),
+                error_message="Task cancelled by user"
+            )
+            raise
+            
+        except Exception as e:
+            # Task failed
+            await queue_manager.update_task(
+                task_id,
+                status=QueueStatus.FAILED,
+                completed_at=datetime.now(),
+                error_message=str(e)
+            )
+            print(f"Task {task_id} failed: {e}")
+            raise
+            
+        finally:
+            # Unregister active task
+            await queue_manager.unregister_active_task(task_id)
+    
+    async def get_queue_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get status of a queued task."""
+        from ..models import queue_manager
+        
+        task = await queue_manager.get_task(task_id)
+        if task:
+            return task.dict()
+        return None
+    
+    async def _process_video_completion(self, task, result):
+        """Process video completion - create asset and associate with scene."""
+        from ..models import ProjectManager, Asset, AssetType, AssetSource
+        from ..services import asset_storage
+        
+        try:
+            # Extract video URL from result
+            video_url = None
+            if isinstance(result, dict):
+                video_url = result.get("video", {}).get("url") or result.get("url") or result.get("output_url")
+            
+            if not video_url:
+                print(f"WARNING: No video URL found in result for task {task.id}")
+                return
+            
+            # Get metadata from task
+            metadata = task.metadata or {}
+            
+            # Create asset
+            asset = Asset(
+                type=AssetType.VIDEO,
+                source=AssetSource.GENERATED,
+                url=video_url,
+                cost=metadata.get("cost", 0.0),
+                metadata={
+                    "model": metadata.get("model"),
+                    "source_image": metadata.get("source_image"),
+                    "motion_prompt": metadata.get("motion_prompt"),
+                    "duration": metadata.get("duration"),
+                    "aspect_ratio": metadata.get("aspect_ratio")
+                },
+                generation_params=metadata
+            )
+            
+            # Download asset
+            if task.project_id:
+                download_result = await asset_storage.download_asset(
+                    url=video_url,
+                    project_id=task.project_id,
+                    asset_id=asset.id,
+                    asset_type="video"
+                )
+                
+                if download_result.get("success"):
+                    asset.local_path = download_result["local_path"]
+            
+            # Associate with scene if specified
+            if task.project_id and task.scene_id:
+                project = ProjectManager.get_project(task.project_id)
+                scene = next((s for s in project.scenes if s.id == task.scene_id), None)
+                
+                if scene:
+                    scene.assets.append(asset)
+                    # Update scene duration if needed
+                    if "duration" in metadata and scene.duration != metadata["duration"]:
+                        scene.duration = metadata["duration"]
+                    
+                    # Update project
+                    project.total_cost = project.calculate_cost()
+                    project.actual_duration = project.calculate_duration()
+                    project.updated_at = datetime.now()
+                    
+                    print(f"Video asset {asset.id} associated with scene {scene.id}")
+                else:
+                    print(f"WARNING: Scene {task.scene_id} not found for video asset")
+            
+        except Exception as e:
+            print(f"ERROR processing video completion: {e}")
+    
+    async def wait_for_task(
+        self,
+        task_id: str,
+        timeout: Optional[float] = None,
+        poll_interval: float = 2.0
+    ) -> Dict[str, Any]:
+        """Wait for a queued task to complete."""
+        from ..models import queue_manager, QueueStatus
+        
+        start_time = time.time()
+        
+        while True:
+            task = await queue_manager.get_task(task_id)
+            if not task:
+                raise ValueError(f"Task {task_id} not found")
+            
+            if task.status == QueueStatus.COMPLETED:
+                return {"success": True, "result": task.result}
+            
+            if task.status == QueueStatus.FAILED:
+                return {"success": False, "error": task.error_message}
+            
+            if task.status == QueueStatus.CANCELLED:
+                return {"success": False, "error": "Task was cancelled"}
+            
+            # Check timeout
+            if timeout and (time.time() - start_time) > timeout:
+                return {"success": False, "error": f"Timeout after {timeout} seconds"}
+            
+            # Wait before next check
+            await asyncio.sleep(poll_interval)
 
 
 # Singleton instance

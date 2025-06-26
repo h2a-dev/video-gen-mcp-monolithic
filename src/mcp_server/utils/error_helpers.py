@@ -12,6 +12,11 @@ class ErrorType:
     API_ERROR = "API_ERROR"
     STATE_ERROR = "STATE_ERROR"
     SYSTEM_ERROR = "SYSTEM_ERROR"
+    RATE_LIMIT = "RATE_LIMIT"
+    TIMEOUT = "TIMEOUT"
+    AUTHENTICATION = "AUTHENTICATION"
+    CONTENT_POLICY = "CONTENT_POLICY"
+    RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"
 
 
 def create_error_response(
@@ -211,41 +216,105 @@ def validate_parameters(**validations: Dict[str, Callable]) -> Callable:
 # Common error handlers for external services
 
 def handle_fal_api_error(error: Exception, operation: str) -> Dict[str, Any]:
-    """Convert FAL API errors to user-friendly messages."""
+    """Convert FAL API errors to user-friendly messages with enhanced context."""
     error_str = str(error).lower()
     
-    if "rate limit" in error_str or "too many requests" in error_str:
+    # Rate limiting errors
+    if any(term in error_str for term in ["rate limit", "too many requests", "429"]):
         return create_error_response(
             ErrorType.API_ERROR,
             "Rate limit exceeded - too many requests",
-            details={"operation": operation, "service": "FAL AI"},
-            suggestion="Wait a few minutes before trying again",
-            example="Consider batching your requests or adding delays"
+            details={"operation": operation, "service": "FAL AI", "error": str(error)},
+            suggestion="Wait a few minutes before trying again. Consider batching your requests or adding delays between calls.",
+            example="# Add delay between requests:\nimport time\ntime.sleep(5)  # Wait 5 seconds"
         )
     
-    if "api key" in error_str or "unauthorized" in error_str:
+    # Authentication errors  
+    if any(term in error_str for term in ["api key", "unauthorized", "401"]):
         return create_error_response(
             ErrorType.API_ERROR,
             "API authentication failed",
             details={"operation": operation, "service": "FAL AI"},
-            suggestion="Check that FALAI_API_KEY environment variable is set correctly"
+            suggestion="Check that FALAI_API_KEY environment variable is set correctly",
+            example="# Set your API key:\nexport FALAI_API_KEY='your-api-key-here'"
         )
     
-    if "timeout" in error_str:
+    # Timeout errors
+    if any(term in error_str for term in ["timeout", "timed out", "took too long"]):
         return create_error_response(
             ErrorType.API_ERROR,
             f"{operation} timed out - this can happen with complex generations",
             details={"operation": operation, "service": "FAL AI"},
-            suggestion="Try again with simpler parameters or wait a moment",
-            example="Consider reducing complexity or using a different model"
+            suggestion="Try again with simpler parameters or shorter duration. Complex requests may take longer.",
+            example="# For video generation, try:\nduration=5  # Instead of 10"
         )
     
-    # Generic API error
+    # Invalid URL/resource errors
+    if any(term in error_str for term in ["invalid url", "url", "not found", "404", "cannot access"]):
+        return create_error_response(
+            ErrorType.VALIDATION_ERROR,
+            "The provided resource URL is not accessible",
+            details={"operation": operation, "error": str(error)},
+            suggestion="Ensure the URL is publicly accessible. For local files, use absolute paths starting with '/'",
+            example="# Web URL: https://example.com/image.jpg\n# Local file: /home/user/images/photo.png"
+        )
+    
+    # Server errors
+    if any(term in error_str for term in ["500", "502", "503", "504", "server error"]):
+        return create_error_response(
+            ErrorType.API_ERROR,
+            f"Server error during {operation}",
+            details={"operation": operation, "service": "FAL AI", "error": str(error)},
+            suggestion="The service is temporarily unavailable. Please try again in a few moments.",
+            example="# Wait and retry"
+        )
+    
+    # Model-specific duration errors
+    if "kling" in error_str and "duration" in error_str:
+        return create_error_response(
+            ErrorType.VALIDATION_ERROR,
+            "Invalid duration for Kling model",
+            details={"operation": operation, "model": "kling_2.1"},
+            suggestion="Kling model only supports durations of 5 or 10 seconds",
+            example="duration=5  # or duration=10"
+        )
+    
+    if "hailuo" in error_str and "duration" in error_str:
+        return create_error_response(
+            ErrorType.VALIDATION_ERROR,
+            "Invalid duration for Hailuo model",
+            details={"operation": operation, "model": "hailuo_02"},
+            suggestion="Hailuo model only supports durations of 6 or 10 seconds",
+            example="duration=6  # or duration=10"
+        )
+    
+    # Content safety errors
+    if any(term in error_str for term in ["safety", "content policy", "inappropriate", "blocked"]):
+        return create_error_response(
+            ErrorType.API_ERROR,
+            "Content violates safety guidelines",
+            details={"operation": operation, "error": str(error)},
+            suggestion="Modify your prompt to be more appropriate. Avoid sensitive or inappropriate content.",
+            example="# Use professional, neutral language in prompts"
+        )
+    
+    # Resource exhaustion
+    if any(term in error_str for term in ["out of memory", "resource", "capacity"]):
+        return create_error_response(
+            ErrorType.API_ERROR,
+            "Insufficient resources available",
+            details={"operation": operation, "error": str(error)},
+            suggestion="The service is at capacity. Try with smaller parameters or wait a few minutes.",
+            example="# Try lower resolution or shorter duration"
+        )
+    
+    # Generic API error with more context
     return create_error_response(
         ErrorType.API_ERROR,
         f"API error during {operation}",
-        details={"operation": operation, "error": str(error)},
-        suggestion="Check your parameters and try again"
+        details={"operation": operation, "error": str(error), "error_type": type(error).__name__},
+        suggestion="Check your parameters and try again. If the error persists, the service may be experiencing issues.",
+        example=f"# Verify all parameters are correct for {operation}"
     )
 
 
