@@ -91,10 +91,12 @@ async def analyze_script(
                 "voice_selection": voice_recommendations
             },
             "next_steps": [
-                f"Create project with: create_project('Title', '{platform or 'custom'}', script=script, target_duration={target_duration})",
-                f"Generate voiceover FIRST: generate_speech(text=script, voice='{voice_recommendations['recommended_voice']}')",
-                "Use script_to_scenes() for scene breakdown based on voiceover timing",
-                "Generate visual assets that sync with the narration"
+                f"Create project: create_project('Title', '{platform or 'custom'}', script=script, target_duration={target_duration})",
+                f"Generate voiceover FIRST: generate_speech(text=script, voice='{voice_recommendations['recommended_voice']}', project_id=project_id)",
+                "Add scenes based on timing: Use add_scene() for each visual beat",
+                "Batch generate visuals: Use return_queue_id=True for non-blocking generation",
+                "Monitor all tasks: get_queue_status(project_id=project_id)",
+                "Final assembly: assemble_video() when all generation is complete"
             ]
         }
         

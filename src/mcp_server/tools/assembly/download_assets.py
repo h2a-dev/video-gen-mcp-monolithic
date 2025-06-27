@@ -168,9 +168,10 @@ async def download_assets(
             },
             "storage_info": asset_storage.calculate_project_storage(project_id),
             "next_steps": [
-                "Use downloaded assets in your video assembly",
-                "Check failed downloads and retry if needed",
-                "Clean up temporary files when done"
+                "Wait for all queued generations: get_queue_status(project_id=project_id)",
+                "Retry any failed downloads if needed",
+                "When all assets ready: assemble_video(project_id)",
+                "Note: Assets from queued generations are auto-downloaded"
             ]
         }
         

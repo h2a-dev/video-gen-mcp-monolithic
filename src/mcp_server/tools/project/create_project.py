@@ -156,10 +156,11 @@ async def create_project(
             },
             "cost_estimate": cost_estimate,
             "next_steps": [
-                "Use analyze_script() to plan scenes if you have a script",
-                "Add scenes with add_scene()",
-                "Generate assets for each scene",
-                "Assemble the final video"
+                "If you have a script: analyze_script() for timing and voice recommendations",
+                "For narrated videos: generate_speech() FIRST to establish timing",
+                "Add scenes: add_scene() based on voiceover timing or visual beats", 
+                "Generate assets: Use return_queue_id=True for batch processing multiple scenes",
+                "Final step: assemble_video() once all generation is complete"
             ]
         }
         

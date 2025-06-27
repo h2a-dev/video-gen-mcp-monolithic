@@ -269,6 +269,16 @@ def handle_fal_api_error(error: Exception, operation: str) -> Dict[str, Any]:
             example="# Wait and retry"
         )
     
+    # Downstream service errors (common with music generation)
+    if any(term in error_str for term in ["downstream", "downstream_service_error", "service_error"]):
+        return create_error_response(
+            ErrorType.API_ERROR,
+            f"The AI service is temporarily having issues with {operation}",
+            details={"operation": operation, "service": "FAL AI", "error": str(error)},
+            suggestion="This is a temporary issue with the AI model. Try a simpler prompt or wait a few moments before retrying.",
+            example="# Try a simpler prompt:\n# 'ambient background music' instead of complex descriptions"
+        )
+    
     # Model-specific duration errors
     if "kling" in error_str and "duration" in error_str:
         return create_error_response(

@@ -97,7 +97,9 @@ async def add_scene(
             "duration_warning": duration_warning,
             "next_steps": [
                 f"Generate image: generate_image_from_text('{description}', project_id='{project_id}', scene_id='{added_scene.id}')",
-                f"Then animate: generate_video_from_image(image_url, motion_prompt, project_id='{project_id}', scene_id='{added_scene.id}')"
+                f"Animate it: generate_video_from_image(image_url, 'motion prompt', duration={duration}, project_id='{project_id}', scene_id='{added_scene.id}')",
+                "For batch processing: Add all scenes first, then generate with return_queue_id=True",
+                "Monitor progress: get_queue_status(project_id=project_id) to see all tasks"
             ]
         }
         

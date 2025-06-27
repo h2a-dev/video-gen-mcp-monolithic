@@ -48,6 +48,13 @@ This guide helps you use the Video Agent MCP server through Claude Code. All too
 ## 🔧 Tools Reference
 All tools use the `mcp__video-agent__` prefix when invoked through Claude Code.
 
+**⚠️ CRITICAL FOR ALL TOOLS**: When passing array parameters, you MUST pass them as actual arrays in the tool call, NOT as JSON strings:
+- ✅ CORRECT: `style_modifiers: ["cinematic", "realistic"]`
+- ❌ WRONG: `style_modifiers: "[\"cinematic\", \"realistic\"]"`
+- ❌ WRONG: `style_modifiers: '["cinematic", "realistic"]'`
+
+This applies to: `style_modifiers`, `asset_urls`, `status_filter`, `scene_ids`, and any other array parameters.
+
 ### Project Management
 
 #### mcp__video-agent__create_project
@@ -81,6 +88,7 @@ View all projects with their status.
 
 ### Content Generation
 • **generate_image_from_text** (prompt, model, aspect_ratio, style_modifiers, project_id, scene_id) - AI text-to-image generation
+  - **⚠️ style_modifiers MUST be an array**: `["cinematic", "realistic"]` NOT `"[\"cinematic\", \"realistic\"]"`
 • **generate_image_from_image** (image_url, prompt, guidance_scale, safety_tolerance, project_id, scene_id) - Transform images with AI
   - Accepts: URL or local file path for image_url (auto-uploads files)
   - Safety tolerance: 1-6 (default 3, higher = more permissive)

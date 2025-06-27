@@ -164,9 +164,10 @@ async def generate_image_from_image(
                 "scene_id": scene_id
             } if project_id else None,
             "next_steps": [
-                f"Animate this image: generate_video_from_image('{asset.url}', 'your motion prompt')",
-                "Apply another transformation with a different prompt",
-                "Use in your project scenes"
+                f"Animate this image: generate_video_from_image('{asset.url}', 'motion prompt', return_queue_id=True)",
+                "For character consistency: Use this tool for ALL scenes with the same character",
+                "Batch transform multiple scenes: Use the same reference image with different prompts",
+                "Monitor all transformations: get_queue_status(project_id=project_id)"
             ]
         }
         

@@ -155,9 +155,10 @@ async def add_audio_track(
                 "processing": "fast (stream copy)"
             },
             "next_steps": [
-                "Add more audio tracks if needed",
-                "Download the video from the output path",
-                "Preview the audio mix"
+                "NOTE: This tool is rarely needed - assemble_video() handles all audio mixing",
+                "Only use this for post-processing after assembly",
+                "For normal workflow: Just use assemble_video() which mixes all project audio",
+                "Download the final video from the output path"
             ]
         }
         

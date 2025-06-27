@@ -211,7 +211,13 @@ async def generate_video_from_image(
                     "message": f"Video generation queued (model: {model})",
                     "estimated_cost": cost,
                     "estimated_duration": duration,
-                    "check_status": f"Use get_queue_status(task_id='{queue_id}') to check progress"
+                    "check_status": f"Use get_queue_status(task_id='{queue_id}') to check progress",
+                    "next_steps": [
+                        f"Check status: get_queue_status(task_id='{queue_id}')",
+                        "Submit more videos with return_queue_id=True for batch processing",
+                        "Wait for all tasks: get_queue_status(project_id=project_id)",
+                        "When complete: assemble_video() to combine all scenes and audio"
+                    ]
                 }
             
             # Otherwise wait for completion
@@ -368,9 +374,11 @@ async def generate_video_from_image(
                 "scene_id": scene_id
             } if project_id else None,
             "next_steps": [
-                "Add more scenes to your project",
-                "Generate audio: generate_music() or generate_speech()",
-                "When ready: assemble_video() to combine all scenes"
+                "For multiple videos: Use return_queue_id=True for non-blocking batch processing",
+                "Generate audio: generate_speech() FIRST for narrated videos, then generate_music()",
+                "Add more scenes to your project with add_scene()",
+                "Check queue status: get_queue_status(task_id=queue_id) if using queuing",
+                "When all assets ready: assemble_video() to combine everything (handles all audio mixing)"
             ]
         }
         

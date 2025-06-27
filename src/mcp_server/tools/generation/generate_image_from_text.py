@@ -186,9 +186,10 @@ async def generate_image_from_text(
                 "scene_id": scene_id
             } if project_id else None,
             "next_steps": [
-                f"Animate this image: generate_video_from_image('{asset.url}', 'your motion prompt')",
-                "Edit the image: generate_image_from_image() with modifications",
-                "Use in multi-image composition: generate_image_from_images()"
+                f"Animate this image: generate_video_from_image('{asset.url}', 'your motion prompt', project_id='{project_id}', scene_id='{scene_id}')" if project_id and scene_id else f"Animate: generate_video_from_image('{asset.url}', 'motion prompt')",
+                "For batch animations: Use return_queue_id=True when animating multiple images",
+                "Transform image: generate_image_from_image() for style consistency",
+                "Generate more scenes: Repeat this process for each scene in your project"
             ]
         }
         

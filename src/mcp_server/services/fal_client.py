@@ -428,6 +428,10 @@ class FALClient:
                         await asyncio.sleep(wait_time)
                         continue
                 
+                # For downstream service errors, don't retry (it's a model issue)
+                if any(term in error_msg for term in ["downstream", "downstream_service_error"]):
+                    break
+                
                 # For other errors, don't retry
                 break
         

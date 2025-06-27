@@ -244,12 +244,15 @@ async def generate_speech(
             "available_voices": voice_options,
             "duration_warning": duration_warning,
             "next_steps": [
-                "Generate visuals for your narration",
-                "Add background music with generate_music()",
-                "Assemble everything with assemble_video()"
+                "Generate visuals that sync with narration timing",
+                "Add background music: generate_music() at lower volume than speech",
+                "For multiple scenes: Use return_queue_id=True for batch video generation",
+                "Final step: assemble_video() - it handles ALL audio mixing automatically"
             ] if not duration_warning else [
-                "Consider regenerating with shorter text or faster speed",
-                "Or extend your video duration to match the audio"
+                "WARNING: Audio exceeds video duration!",
+                "Option 1: Regenerate with shorter text or faster speed",
+                "Option 2: Extend video duration by adding more scenes",
+                "Option 3: The audio will be trimmed during assembly"
             ]
         }
         

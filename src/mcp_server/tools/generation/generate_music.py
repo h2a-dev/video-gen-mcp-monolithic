@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from ...services import fal_service, asset_storage
 from ...models import ProjectManager, Asset, AssetType, AssetSource
 from ...config import calculate_music_cost
+from ...utils import handle_fal_api_error
 
 
 async def generate_music(
@@ -27,6 +28,9 @@ async def generate_music(
         )
         
         if not result["success"]:
+            # If it's an API error, provide helpful context
+            if "error" in result:
+                return handle_fal_api_error(Exception(result["error"]), "music generation")
             return result
         
         # Calculate cost
@@ -90,13 +94,19 @@ async def generate_music(
                 "For custom duration, the audio will be adjusted in post-processing"
             ],
             "next_steps": [
-                "Add voiceover: generate_speech() for narration",
-                "Continue adding scenes to your video",
-                "Use add_audio_track() during assembly to mix audio"
+                "Add voiceover: generate_speech() if you need narration",
+                "Continue generating visual content for your scenes",
+                "IMPORTANT: assemble_video() automatically mixes ALL audio - no need to use add_audio_track()",
+                "For multiple music tracks: Just generate them all before assembly"
             ]
         }
         
     except Exception as e:
+        # Check if it's an API error
+        if "fal" in str(e).lower() or "api" in str(e).lower() or "downstream" in str(e).lower():
+            return handle_fal_api_error(e, "music generation")
+        
+        # Generic error
         return {
             "success": False,
             "error": str(e),
