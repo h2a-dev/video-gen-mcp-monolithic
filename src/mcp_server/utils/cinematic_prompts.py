@@ -1,62 +1,62 @@
-"""Cinematic prompt enhancement utilities using professional camera knowledge."""
+"""Cinematic prompt enhancement utilities for professional visual styling."""
 
 from typing import Dict, List, Optional, Tuple
 import random
 
 
 class CinematicPromptEnhancer:
-    """Enhance image and video prompts with professional camera techniques."""
+    """Enhance image and video prompts with professional visual techniques."""
     
-    # Camera models by style/mood
-    CAMERA_STYLES = {
+    # Visual styles by mood
+    VISUAL_STYLES = {
         "documentary": [
-            "handheld documentary style, Canon 5D Mark IV",
-            "raw aesthetic, shot on Canon C300, slightly tilted frame",
-            "natural lighting, Blackmagic Pocket 6K, handheld movement"
+            "handheld documentary style, raw authentic feel",
+            "natural aesthetic, slightly tilted frame, organic movement",
+            "natural lighting, handheld movement, observational approach"
         ],
         "cinematic": [
-            "shot on ARRI Alexa, anamorphic lens, cinematic widescreen",
-            "RED Komodo 6K, film grain, shallow depth of field",
-            "Blackmagic URSA Mini Pro, cinematic color grading"
+            "cinematic widescreen composition, professional look",
+            "film grain aesthetic, shallow depth of field, dramatic lighting",
+            "cinematic color grading, movie-quality visuals"
         ],
         "vintage": [
-            "shot on Hasselblad 500CM, Kodak Portra 400, medium format",
-            "Canon AE-1, Kodak Tri-X 400, film grain, vintage aesthetic",
-            "Polaroid SX-70, instant film aesthetic, soft focus"
+            "medium format aesthetic, film grain, nostalgic mood",
+            "vintage film look, warm tones, soft focus",
+            "instant film aesthetic, soft focus, dreamy quality"
         ],
         "modern": [
-            "Sony A7R IV, 61MP high resolution, crystal clear",
-            "Canon EOS R5, modern color science, sharp details",
-            "iPhone 15 Pro Max, computational photography, HDR"
+            "high resolution, crystal clear quality, sharp details",
+            "modern color science, vibrant and clean aesthetic",
+            "HDR quality, professional photography style"
         ],
         "artistic": [
-            "Holga 120N, plastic lens, light leaks, heavy vignetting",
-            "double exposure, ethereal blend, ghostly overlay",
-            "tilt-shift lens, miniature effect, selective focus"
+            "light leaks, heavy vignetting, experimental look",
+            "double exposure effect, ethereal blend, ghostly overlay",
+            "miniature effect, selective focus, artistic interpretation"
         ]
     }
     
-    # Lens choices by shot type
-    LENS_SELECTIONS = {
+    # Shot composition by type
+    SHOT_COMPOSITIONS = {
         "wide_establishing": [
-            "14-24mm ultra-wide lens, dramatic perspective",
-            "24mm f/1.4, natural wide angle, minimal distortion",
-            "15mm fisheye, 180° view, circular distortion"
+            "ultra-wide perspective, dramatic composition",
+            "natural wide angle view, minimal distortion",
+            "fisheye perspective, 180° view, circular distortion"
         ],
         "portrait": [
-            "Canon 85mm f/1.2L, shallow depth of field, creamy bokeh",
-            "135mm f/2, exceptional sharpness, beautiful compression",
-            "50mm f/1.2, natural perspective, subject isolation"
+            "shallow depth of field, creamy bokeh background",
+            "beautiful compression, subject isolation",
+            "natural perspective, intimate framing"
         ],
         "detail": [
-            "100mm macro lens, extreme close-up, 1:1 magnification",
-            "90mm tilt-shift, selective focus, miniature effect",
-            "200mm telephoto, compressed perspective, isolated details"
+            "extreme close-up, macro detail",
+            "selective focus, miniature effect",
+            "compressed perspective, isolated details"
         ],
         "action": [
-            "70-200mm f/2.8, fast autofocus, motion tracking",
-            "300mm f/2.8, extreme reach, background compression",
-            "24-70mm f/2.8, versatile zoom, quick framing"
+            "dynamic motion tracking, energetic framing",
+            "compressed background, subject emphasis",
+            "versatile framing, quick action capture"
         ]
     }
     
@@ -103,11 +103,11 @@ class CinematicPromptEnhancer:
         lighting: Optional[str] = None,
         platform: Optional[str] = None
     ) -> str:
-        """Enhance an image prompt with cinematic camera details."""
+        """Enhance an image prompt with cinematic visual details."""
         
-        # Select camera and lens based on style and shot type
-        camera = random.choice(cls.CAMERA_STYLES.get(style, cls.CAMERA_STYLES["modern"]))
-        lens = random.choice(cls.LENS_SELECTIONS.get(shot_type, cls.LENS_SELECTIONS["wide_establishing"]))
+        # Select visual style and shot composition
+        visual_style = random.choice(cls.VISUAL_STYLES.get(style, cls.VISUAL_STYLES["modern"]))
+        composition = random.choice(cls.SHOT_COMPOSITIONS.get(shot_type, cls.SHOT_COMPOSITIONS["wide_establishing"]))
         
         # Add lighting if specified
         lighting_desc = ""
@@ -126,11 +126,11 @@ class CinematicPromptEnhancer:
         # Construct enhanced prompt
         enhanced_parts = [
             base_prompt,
-            camera,
-            lens,
+            visual_style,
+            composition,
             lighting_desc,
             platform_hint,
-            "professional photography"
+            "professional quality"
         ]
         
         # Filter out empty parts and join
@@ -145,7 +145,7 @@ class CinematicPromptEnhancer:
         movement_style: str = "smooth",
         duration: int = 5
     ) -> str:
-        """Enhance a video motion prompt with professional camera movements."""
+        """Enhance a video motion prompt with professional movements."""
         
         # Select appropriate camera movement
         movement = random.choice(cls.CAMERA_MOVEMENTS.get(movement_style, cls.CAMERA_MOVEMENTS["smooth"]))
@@ -163,35 +163,35 @@ class CinematicPromptEnhancer:
     
     @classmethod
     def get_scene_specific_enhancement(cls, scene_type: str) -> Dict[str, str]:
-        """Get camera recommendations for specific scene types."""
+        """Get visual style recommendations for specific scene types."""
         
         scene_enhancements = {
             "opening": {
-                "camera": "cinematic",
+                "style": "cinematic",
                 "shot": "wide_establishing",
                 "movement": "dramatic",
                 "lighting": "golden_hour"
             },
             "action": {
-                "camera": "modern",
+                "style": "modern",
                 "shot": "action",
                 "movement": "energetic",
                 "lighting": "natural"
             },
             "emotional": {
-                "camera": "cinematic",
+                "style": "cinematic",
                 "shot": "portrait",
                 "movement": "subtle",
                 "lighting": "dramatic"
             },
             "detail": {
-                "camera": "modern",
+                "style": "modern",
                 "shot": "detail",
                 "movement": "smooth",
                 "lighting": "studio"
             },
             "closing": {
-                "camera": "cinematic",
+                "style": "cinematic",
                 "shot": "wide_establishing",
                 "movement": "smooth",
                 "lighting": "blue_hour"
@@ -201,10 +201,10 @@ class CinematicPromptEnhancer:
         return scene_enhancements.get(scene_type, scene_enhancements["opening"])
     
     @classmethod
-    def suggest_camera_setup(cls, description: str) -> Tuple[str, str]:
-        """Suggest camera and lens based on scene description."""
+    def suggest_visual_setup(cls, description: str) -> Tuple[str, str]:
+        """Suggest visual style and composition based on scene description."""
         
-        # Keywords to camera/lens mapping
+        # Keywords to visual style/composition mapping
         keywords_to_setup = {
             # Wide shots
             ("landscape", "establishing", "wide", "panoramic"): ("wide_establishing", "cinematic"),
@@ -253,12 +253,12 @@ def create_cinematic_image_prompt(
     # Get scene-specific enhancements
     enhancements = CinematicPromptEnhancer.get_scene_specific_enhancement(scene_type)
     
-    # Auto-detect best camera setup from description
-    shot_type, style = CinematicPromptEnhancer.suggest_camera_setup(base_description)
+    # Auto-detect best visual setup from description
+    shot_type, style = CinematicPromptEnhancer.suggest_visual_setup(base_description)
     
     # Override with scene-specific if available
     shot_type = enhancements.get("shot", shot_type)
-    style = enhancements.get("camera", style)
+    style = enhancements.get("style", style)
     lighting = enhancements.get("lighting", "natural")
     
     # Enhance the prompt

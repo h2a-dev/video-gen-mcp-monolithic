@@ -23,8 +23,8 @@ VIDEO_MODELS = {
 # Image model configurations
 IMAGE_MODELS = {
     "imagen4": {
-        "cost_per_image": 0.04,
-        "fal_model_id": "fal-ai/imagen4/preview",
+        "cost_per_image": 0.06,
+        "fal_model_id": "fal-ai/imagen4/preview/ultra",
         "supports_aspect_ratios": True
     },
     "flux_pro": {

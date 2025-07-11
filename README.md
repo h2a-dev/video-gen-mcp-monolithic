@@ -9,6 +9,7 @@ A comprehensive Model Context Protocol (MCP) server for AI-powered video creatio
 - **Intelligent Workflows**: Guided prompts that adapt to your project context
 - **Platform Optimization**: Pre-configured settings for YouTube, TikTok, Instagram, and more
 - **Cost Tracking**: Real-time cost estimation and tracking for all operations
+- **YouTube Integration**: Direct upload to YouTube with OAuth2 authentication
 - **Modular Architecture**: Clean separation of tools, resources, and prompts
 
 ## Quick Start
@@ -18,49 +19,77 @@ A comprehensive Model Context Protocol (MCP) server for AI-powered video creatio
 - Python 3.11+
 - FFmpeg installed on your system
 - FAL AI API key
-- uv (recommended for dependency management)
+- uv (Python package manager)
 
-### Installation
+### Installation with uv
 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd video-agent-mcp
+cd video-gen-mcp-monolithic
 ```
 
 2. Install uv (if not already installed):
 ```bash
+# On macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# On Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-3. Create virtual environment and install dependencies:
+3. Set up the project with uv:
 ```bash
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# uv will automatically:
+# - Detect Python 3.11 from .python-version
+# - Create a virtual environment
+# - Install all dependencies from pyproject.toml
+uv sync
+
+# Or if you want to install from requirements.txt:
 uv pip install -r requirements.txt
 ```
 
 4. Set up environment variables:
 ```bash
-export FALAI_API_KEY="your-fal-api-key"
+# Create a .env file in the project root
+cat > .env << EOF
+FALAI_API_KEY=your-fal-api-key
+# Optional: For YouTube search features
+GOOGLE_API_KEY=your-google-api-key
+EOF
 ```
 
 ### Running the Server
 
 ```bash
+# Run directly with uv (recommended)
 uv run python main.py
+
+# Or activate venv and run
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python main.py
 ```
 
 ### Configuring Claude Desktop
 
-Add the following to your Claude Desktop configuration (`.mcp.json`):
+Add the following to your Claude Desktop configuration:
+
+**On macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**On Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "video-agent": {
       "command": "uv",
-      "args": ["--directory", "./video-agent-mcp", "run", "python", "main.py"],
+      "args": [
+        "--directory",
+        "/absolute/path/to/video-gen-mcp-monolithic",
+        "run",
+        "python",
+        "main.py"
+      ],
       "env": {
         "FALAI_API_KEY": "your-fal-api-key"
       }
@@ -69,7 +98,19 @@ Add the following to your Claude Desktop configuration (`.mcp.json`):
 }
 ```
 
-Note: The `--directory` flag ensures uv runs in the correct project directory.
+**Important**: Replace `/absolute/path/to/video-gen-mcp-monolithic` with the actual path to your project directory.
+
+### Alternative: Using pyproject.toml script
+
+Since we've defined a script entry point in pyproject.toml, you can also run:
+
+```bash
+# Install the package in development mode
+uv pip install -e .
+
+# Run using the script entry point
+uv run video-agent-mcp
+```
 
 ## Usage Example
 
@@ -153,11 +194,85 @@ video-agent-mcp/
 
 ## Development
 
-To add new capabilities:
+### Setting up Development Environment
+
+```bash
+# Clone and enter the project
+git clone <repository-url>
+cd video-gen-mcp-monolithic
+
+# Install with development dependencies
+uv sync --dev
+
+# Or install dev dependencies separately
+uv pip install -e ".[dev]"
+
+# Run tests
+uv run pytest
+
+# Run linting
+uv run ruff check .
+
+# Format code
+uv run ruff format .
+```
+
+### Adding New Capabilities
 
 1. **New Tool**: Create a file in `src/mcp_server/tools/` and register in `server.py`
 2. **New Resource**: Create handler in `resources/` and register with decorator
 3. **New Prompt**: Add to `prompts/` for guided workflows
+
+### Troubleshooting uv
+
+#### "No Python interpreter found"
+```bash
+# uv will use the Python version from .python-version (3.11)
+# If you need a specific Python version:
+uv python install 3.11
+uv venv --python 3.11
+```
+
+#### "Permission denied" on macOS/Linux
+```bash
+# Ensure uv is in PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### "Module not found" errors
+```bash
+# Ensure you're using uv run or have activated the venv
+uv run python main.py
+# OR
+source .venv/bin/activate
+python main.py
+```
+
+#### Claude Desktop can't find the server
+1. Use absolute paths in the configuration
+2. Ensure FAL_API_KEY is set in the env section
+3. Check Claude Desktop logs for errors
+4. Test the server standalone first: `uv run python main.py`
+
+### YouTube Integration
+
+For YouTube upload functionality, see [YOUTUBE_SETUP.md](YOUTUBE_SETUP.md) for detailed OAuth2 setup instructions.
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```bash
+# Required
+FALAI_API_KEY=your-fal-api-key
+
+# Optional
+VIDEO_AGENT_STORAGE=/path/to/storage  # Default: ./storage
+DEFAULT_IMAGE_MODEL=imagen4           # Options: imagen4, flux_pro, flux_kontext
+DEFAULT_VIDEO_MODEL=kling_2.1         # Options: kling_2.1, hailuo_02
+GOOGLE_API_KEY=your-google-api-key    # For YouTube search features
+```
 
 ## License
 

@@ -249,8 +249,18 @@ def handle_fal_api_error(error: Exception, operation: str) -> Dict[str, Any]:
             example="# For video generation, try:\nduration=5  # Instead of 10"
         )
     
+    # Content policy violations (check this before URL errors)
+    if any(term in error_str for term in ["content_policy_violation", "content policy", "flagged", "content could not be processed"]):
+        return create_error_response(
+            ErrorType.CONTENT_POLICY,
+            "Content violates AI service content policy",
+            details={"operation": operation, "error": str(error)},
+            suggestion="Simplify your prompt and avoid potentially sensitive content. Try more generic descriptions.",
+            example="# Instead of specific themes, try:\n# 'upbeat background music'\n# 'calm ambient sounds'\n# 'energetic instrumental'"
+        )
+    
     # Invalid URL/resource errors
-    if any(term in error_str for term in ["invalid url", "url", "not found", "404", "cannot access"]):
+    if any(term in error_str for term in ["invalid url", "url", "not found", "404", "cannot access"]) and "content_policy" not in error_str:
         return create_error_response(
             ErrorType.VALIDATION_ERROR,
             "The provided resource URL is not accessible",

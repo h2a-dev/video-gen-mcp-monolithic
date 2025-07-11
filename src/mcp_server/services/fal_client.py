@@ -199,7 +199,7 @@ class FALClient:
     async def _run_imagen4(self, prompt: str, aspect_ratio: str, **kwargs) -> Dict[str, Any]:
         """Run Google Imagen 4 model with retry logic."""
         return await self._run_with_retry(
-            model_id="fal-ai/imagen4/preview",
+            model_id="fal-ai/imagen4/preview/ultra",
             arguments={
                 "prompt": prompt,
                 "aspect_ratio": aspect_ratio,

@@ -2,7 +2,7 @@
 
 import json
 from fastmcp import FastMCP
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from .config import settings
 
 # Import all tool implementations with aliases to avoid conflicts
@@ -26,11 +26,20 @@ from .tools.assembly import (
 from .tools.utility import (
     analyze_script as analyze_script_impl,
     suggest_scenes as suggest_scenes_impl,
-    upload_image_file as upload_image_file_impl
+    upload_image_file as upload_image_file_impl,
+    get_youtube_categories as get_youtube_categories_impl,
+    analyze_youtube_video as analyze_youtube_video_impl,
+    youtube_publish as youtube_publish_impl
 )
 from .tools.queue import (
     get_queue_status as get_queue_status_impl,
     cancel_task as cancel_task_impl
+)
+from .tools.youtube_search import (
+    search_youtube_videos,
+    get_youtube_video_details,
+    get_youtube_trending_videos,
+    get_youtube_videos_batch_details
 )
 
 # Import resource implementations
@@ -46,7 +55,6 @@ from .resources import (
 from .prompts import (
     video_creation_wizard,
     script_to_scenes,
-    cinematic_photography_guide,
     list_video_agent_capabilities
 )
 
@@ -65,7 +73,7 @@ async def create_project(
     title: str,
     platform: str,
     script: Optional[str] = None,
-    target_duration: Optional[int] = None,
+    target_duration: Optional[Union[int, str]] = None,
     aspect_ratio: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -91,8 +99,8 @@ async def create_project(
 async def add_scene(
     project_id: str,
     description: str,
-    duration: int,
-    position: Optional[int] = None
+    duration: Union[int, str],
+    position: Optional[Union[int, str]] = None
 ) -> Dict[str, Any]:
     """
     Add a scene to the project timeline.
@@ -134,7 +142,7 @@ async def generate_image_from_text(
     prompt: str,
     model: str = "imagen4",
     aspect_ratio: str = "16:9",
-    style_modifiers: Optional[List[str]] = None,
+    style_modifiers: Optional[Union[List[str], str]] = None,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -203,10 +211,10 @@ async def generate_image_from_image(
 async def generate_video_from_image(
     image_url: str,
     motion_prompt: str,
-    duration: int = 5,
+    duration: Union[int, str] = 5,
     aspect_ratio: str = "16:9",
     model: Optional[str] = None,
-    motion_strength: float = 0.7,
+    motion_strength: Union[float, str] = 0.7,
     prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None,
@@ -251,7 +259,7 @@ async def generate_video_from_image(
 @mcp.tool()
 async def generate_music(
     prompt: str,
-    duration: int = 95,
+    duration: Union[int, str] = 95,
     project_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -274,7 +282,7 @@ async def generate_music(
 async def generate_speech(
     text: str,
     voice: str = "en-US-1",
-    speed: float = 1.0,
+    speed: Union[float, str] = 1.0,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -304,7 +312,7 @@ async def generate_speech(
 async def get_queue_status(
     task_id: Optional[str] = None,
     project_id: Optional[str] = None,
-    status_filter: Optional[List[str]] = None,
+    status_filter: Optional[Union[List[str], str]] = None,
     include_completed: bool = False
 ) -> Dict[str, Any]:
     """
@@ -350,10 +358,10 @@ async def cancel_task(task_id: str) -> Dict[str, Any]:
 
 @mcp.tool()
 async def download_assets(
-    asset_urls: List[str],
+    asset_urls: Union[List[str], str],
     project_id: str,
     asset_type: Optional[str] = None,
-    parallel_downloads: int = 5
+    parallel_downloads: Union[int, str] = 5
 ) -> Dict[str, Any]:
     """
     Download generated assets from FAL or other sources.
@@ -385,9 +393,9 @@ async def add_audio_track(
     video_path: str,
     audio_path: str,
     track_type: str = "background",
-    volume_adjustment: float = 1.0,
-    fade_in: float = 0,
-    fade_out: float = 0
+    volume_adjustment: Union[float, str] = 1.0,
+    fade_in: Union[float, str] = 0,
+    fade_out: Union[float, str] = 0
 ) -> Dict[str, Any]:
     """
     Add audio track to video without re-encoding video stream.
@@ -420,7 +428,11 @@ async def assemble_video(
     project_id: str,
     scene_ids: Optional[List[str]] = None,
     output_format: str = "mp4",
-    quality_preset: str = "high"
+    quality_preset: str = "high",
+    add_logo: bool = False,
+    logo_position: str = "bottom_right",
+    logo_padding: int = 10,
+    add_end_video: bool = False
 ) -> Dict[str, Any]:
     """
     Assemble scenes into a complete video using ffmpeg.
@@ -430,11 +442,18 @@ async def assemble_video(
         scene_ids: Optional specific scenes (uses all if not specified)
         output_format: Output format (mp4, mov, etc.)
         quality_preset: Quality level (low, medium, high)
+        add_logo: Whether to add H2A logo overlay (default: False)
+        logo_position: Corner position - bottom_right, bottom_left, top_right, top_left (default: bottom_right)
+        logo_padding: Padding from edges in pixels (default: 10)
+        add_end_video: Whether to append H2A end video (default: False)
     
     Returns:
         Assembled video path and metadata
     """
-    return await assemble_video_impl(project_id, scene_ids, output_format, quality_preset)
+    return await assemble_video_impl(
+        project_id, scene_ids, output_format, quality_preset,
+        add_logo, logo_position, logo_padding, add_end_video
+    )
 
 
 # ============================================================================
@@ -444,7 +463,7 @@ async def assemble_video(
 @mcp.tool()
 async def analyze_script(
     script: str,
-    target_duration: Optional[int] = None,
+    target_duration: Optional[Union[int, str]] = None,
     platform: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -493,6 +512,197 @@ async def upload_image_file(file_path: str) -> Dict[str, Any]:
         Dict with upload results including the URL
     """
     return await upload_image_file_impl(file_path)
+
+
+@mcp.tool()
+async def get_youtube_categories(
+    region_code: str = "US",
+    language: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Retrieve YouTube video categories for a specific region.
+    
+    Args:
+        region_code: ISO 3166-1 alpha-2 country code (default: "US")
+                    Examples: "US", "UK", "CA", "AU", "DE", "FR", "JP", "BR"
+        language: Optional language code for category names (default: uses region default)
+                 Examples: "en_US", "es_ES", "pt_BR", "ja_JP"
+    
+    Returns:
+        Dictionary containing:
+        - categories: List of available video categories with IDs and titles
+        - region_code: The region code used
+        - language: The language code used
+        - total_count: Number of categories returned
+    """
+    return await get_youtube_categories_impl(region_code, language)
+
+
+@mcp.tool()
+async def analyze_youtube_video(
+    youtube_url: str,
+    project_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Analyze a YouTube video to extract scenes and create a script for generative AI video creation.
+    
+    This tool uses Gemini API to analyze video content and extract:
+    - Scene-by-scene breakdown with timestamps
+    - AI image generation prompts for each scene
+    - Motion descriptions for image-to-video generation
+    - Narration/audio transcript
+    - Background music descriptions
+    
+    Perfect for recreating video structures using generative AI tools.
+    
+    Args:
+        youtube_url: YouTube video URL (must be public)
+        project_id: Optional project to associate the analysis with
+        
+    Returns:
+        Analysis results with scene breakdown and AI prompts
+    """
+    return await analyze_youtube_video_impl(youtube_url, project_id)
+
+
+@mcp.tool()
+async def youtube_publish(
+    project_id: str,
+    title: str,
+    description: str = "",
+    tags: Optional[Union[List[str], str]] = None,
+    category_id: str = "22",
+    privacy_status: str = "private",
+    notify_subscribers: bool = True,
+    use_hashtag_shorts: bool = True
+) -> Dict[str, Any]:
+    """
+    Publish a project's video to YouTube.
+    
+    Args:
+        project_id: ID of the project containing the video
+        title: Video title (YouTube Shorts should be < 100 chars)
+        description: Video description (optional, can include hashtags)
+        tags: List of tags/keywords for the video (optional)
+        category_id: YouTube category ID (default: 22 - People & Blogs)
+        privacy_status: Privacy setting - 'public', 'private', or 'unlisted' (default: private)
+        notify_subscribers: Whether to notify channel subscribers (default: true)
+        use_hashtag_shorts: Auto-append #Shorts to title/description for short videos (default: true)
+    
+    Returns:
+        Success: { success: true, video_id, video_url, title, privacy_status }
+        Error: { success: false, error: message }
+    
+    Note: Requires YouTube API authentication. Videos under 60s will auto-tag as Shorts.
+    """
+    return await youtube_publish_impl(
+        project_id, title, description, tags, category_id, 
+        privacy_status, notify_subscribers, use_hashtag_shorts
+    )
+
+
+@mcp.tool()
+async def search_youtube_videos_tool(
+    query: str,
+    max_results: int = 10,
+    order: str = "relevance",
+    published_after: Optional[str] = None,
+    published_before: Optional[str] = None,
+    region_code: Optional[str] = None,
+    video_duration: Optional[str] = None,
+    video_category_id: Optional[str] = None,
+    channel_id: Optional[str] = None,
+    next_page_token: Optional[str] = None
+) -> Dict[str, Any]:
+    """Search for YouTube videos with various filters and parameters.
+    
+    Args:
+        query: Search query string (required)
+        max_results: Maximum number of results to return (1-50, default: 10)
+        order: Sort order - one of: relevance, date, rating, title, viewCount (default: relevance)
+        published_after: ISO 8601 datetime string (e.g., "2024-01-01T00:00:00Z") for minimum publish date
+        published_before: ISO 8601 datetime string for maximum publish date
+        region_code: ISO 3166-1 alpha-2 country code (e.g., "US", "UK", "JP")
+        video_duration: Duration filter - one of: short (<4min), medium (4-20min), long (>20min)
+        video_category_id: YouTube category ID (use get_youtube_categories to find IDs)
+        channel_id: Filter results to only videos from this channel
+        next_page_token: Token for pagination (from previous search results)
+    
+    Returns:
+        Dictionary containing:
+        - success: Whether the search was successful
+        - videos: List of video objects with metadata
+        - total_results: Estimated total number of results
+        - results_per_page: Number of results returned
+        - next_page_token: Token to get next page of results
+        - prev_page_token: Token to get previous page of results
+        - error: Error message if unsuccessful
+    """
+    return await search_youtube_videos(
+        query, max_results, order, published_after, published_before,
+        region_code, video_duration, video_category_id, channel_id, next_page_token
+    )
+
+
+@mcp.tool()
+async def get_youtube_video_details_tool(video_id: str) -> Dict[str, Any]:
+    """Get detailed information about a specific YouTube video.
+    
+    Args:
+        video_id: YouTube video ID (e.g., "dQw4w9WgXcQ")
+    
+    Returns:
+        Dictionary containing:
+        - success: Whether the request was successful
+        - video: Video object with full metadata if found
+        - error: Error message if unsuccessful
+    """
+    return await get_youtube_video_details(video_id)
+
+
+@mcp.tool()
+async def get_youtube_trending_videos_tool(
+    region_code: str = "US",
+    category_id: Optional[str] = 42,
+    max_results: int = 10
+) -> Dict[str, Any]:
+    """Get trending YouTube videos for a specific region.
+    
+    Args:
+        region_code: ISO 3166-1 alpha-2 country code (default: "US")
+                    Examples: "US", "UK", "CA", "AU", "DE", "FR", "JP", "BR"
+        category_id: Optional YouTube category ID to filter by
+                    (use get_youtube_categories to find category IDs)
+        max_results: Maximum number of results (1-50, default: 10)
+    
+    Returns:
+        Dictionary containing:
+        - success: Whether the request was successful
+        - videos: List of trending video objects
+        - region_code: The region code used
+        - category_id: The category ID used (if any)
+        - total_count: Number of videos returned
+        - error: Error message if unsuccessful
+    """
+    return await get_youtube_trending_videos(region_code, category_id, max_results)
+
+
+@mcp.tool()
+async def get_youtube_videos_batch_details_tool(video_ids: List[str]) -> Dict[str, Any]:
+    """Get detailed information for multiple YouTube videos in a single request.
+    
+    Args:
+        video_ids: List of YouTube video IDs (e.g., ["dQw4w9WgXcQ", "jNQXAC9IVRw"])
+                  Maximum 50 IDs per request
+    
+    Returns:
+        Dictionary containing:
+        - success: Whether the request was successful
+        - videos: List of video objects with full metadata including thumbnails
+        - total_count: Number of videos returned
+        - error: Error message if unsuccessful
+    """
+    return await get_youtube_videos_batch_details(video_ids)
 
 
 @mcp.tool()
@@ -593,24 +803,6 @@ async def prompt_script_to_scenes(
         List of messages with scene breakdowns
     """
     return await script_to_scenes(script, target_duration, style)
-
-
-@mcp.prompt("cinematic_photography_guide")
-async def prompt_cinematic_photography_guide(
-    scene_type: str,
-    mood: str
-) -> List[Dict[str, Any]]:
-    """
-    Get cinematic photography guidance for scenes.
-    
-    Args:
-        scene_type: Type of scene (dialogue, action, landscape, etc.)
-        mood: Desired mood (dramatic, peaceful, energetic, etc.)
-    
-    Returns:
-        List of messages with cinematic guidance
-    """
-    return await cinematic_photography_guide(scene_type, mood)
 
 
 @mcp.prompt("list_video_agent_capabilities")

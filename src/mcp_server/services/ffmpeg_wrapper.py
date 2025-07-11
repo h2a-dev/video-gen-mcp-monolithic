@@ -51,12 +51,20 @@ class FFmpegWrapper:
                 cmd = [
                     self.ffmpeg_path,
                     "-i", video_paths[0],
-                    "-c:v", "copy",
-                    "-c:a", "copy" if has_audio else "-an",
+                    "-c:v", "copy"
+                ]
+                
+                # Handle audio properly
+                if has_audio:
+                    cmd.extend(["-c:a", "copy"])
+                else:
+                    cmd.append("-an")
+                
+                cmd.extend([
                     "-movflags", "+faststart",
                     "-y",
                     str(output_path)
-                ]
+                ])
                 
                 result = await self._run_ffmpeg(cmd, timeout=300)
             else:
@@ -66,9 +74,14 @@ class FFmpegWrapper:
                 temp_files_created = []
                 
                 for i, video_path in enumerate(video_paths):
-                    if i == 0:
-                        # First video - use as is
+                    # Check if this is the end video (h2a_end.mp4)
+                    is_end_video = "h2a_end.mp4" in video_path
+                    
+                    if i == 0 or is_end_video:
+                        # First video or end video - use as is
                         trimmed_paths.append(video_path)
+                        if is_end_video:
+                            print(f"[FFmpeg] Using end video without trimming: {video_path}", file=sys.stderr)
                     else:
                         # Trim first 0.5 seconds using -ss
                         trimmed_path = settings.temp_dir / f"trimmed_{os.getpid()}_{i}.mp4"
@@ -78,12 +91,20 @@ class FFmpegWrapper:
                             self.ffmpeg_path,
                             "-ss", "0.5",  # Skip first 0.5 seconds
                             "-i", str(video_path),
-                            "-c:v", "copy",  # Copy codec!
-                            "-c:a", "copy" if has_audio else "-an",
+                            "-c:v", "copy"  # Copy codec!
+                        ]
+                        
+                        # Handle audio properly
+                        if has_audio:
+                            trim_cmd.extend(["-c:a", "copy"])
+                        else:
+                            trim_cmd.append("-an")
+                        
+                        trim_cmd.extend([
                             "-avoid_negative_ts", "make_zero",  # Handle timestamp issues
                             "-y",
                             str(trimmed_path)
-                        ]
+                        ])
                         
                         trim_result = await self._run_ffmpeg(trim_cmd)
                         if trim_result.get("success"):
@@ -97,6 +118,15 @@ class FFmpegWrapper:
                 # Now concatenate using the concat demuxer
                 concat_file = settings.temp_dir / f"concat_{os.getpid()}.txt"
                 temp_files_created.append(concat_file)
+                
+                # Verify all input files before concatenation
+                print(f"[FFmpeg] Verifying {len(trimmed_paths)} input files for concatenation", file=sys.stderr)
+                for i, path in enumerate(trimmed_paths):
+                    if not Path(path).exists():
+                        print(f"[FFmpeg] ERROR: Input file {i} does not exist: {path}", file=sys.stderr)
+                    else:
+                        info = await self.get_video_info(path)
+                        print(f"[FFmpeg] Input {i}: {Path(path).name} - {info.get('width', 0)}x{info.get('height', 0)}, {info.get('duration', 0):.2f}s", file=sys.stderr)
                 
                 with open(concat_file, 'w') as f:
                     for path in trimmed_paths:
@@ -131,12 +161,17 @@ class FFmpegWrapper:
             # Get output info
             output_info = await self.get_video_info(output_path)
             
+            # Calculate trimmed seconds (exclude end video from trimming count)
+            end_video_count = sum(1 for path in video_paths if "h2a_end.mp4" in path)
+            trimmed_video_count = len(video_paths) - 1 - end_video_count  # -1 for first video, -end_video_count for end videos
+            trimmed_seconds = 0.5 * max(0, trimmed_video_count)
+            
             return {
                 "success": True,
                 "output_path": output_path,
                 "duration": output_info.get("duration", 0),
                 "size": os.path.getsize(output_path),
-                "trimmed_seconds": 0.5 * (len(video_paths) - 1),
+                "trimmed_seconds": trimmed_seconds,
                 "command": " ".join(concat_cmd if 'concat_cmd' in locals() else cmd)
             }
             
@@ -178,10 +213,10 @@ class FFmpegWrapper:
                 if new_audio_filters:
                     filter_parts.append(f"[1:a]{','.join(new_audio_filters)}[a1]")
                     # Use dropout_transition=0 to prevent volume changes when one stream ends
-                    # Changed duration from 'longest' to 'first' to match video length
-                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=first:dropout_transition=0:weights='1 1'[aout]")
+                    # Use 'longest' to preserve full video duration
+                    filter_parts.append("[0:a][a1]amix=inputs=2:duration=longest:dropout_transition=0:weights='1 1'[aout]")
                 else:
-                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0:weights='1 1'[aout]")
+                    filter_parts.append("[0:a][1:a]amix=inputs=2:duration=longest:dropout_transition=0:weights='1 1'[aout]")
                 
                 filter_complex = ";".join(filter_parts)
                 
@@ -220,7 +255,7 @@ class FFmpegWrapper:
                     "-b:a", "192k",
                     "-map", "0:v",   # Video from first input
                     "-map", "1:a",   # Audio from second input
-                    "-shortest",     # Stop when shortest stream ends
+                    # Removed -shortest to preserve full video duration
                     "-y",
                     str(output_path)
                 ]
@@ -321,9 +356,9 @@ class FFmpegWrapper:
                     filter_complex = ""
                 
                 # Use amix with weights to preserve volume
-                # Changed duration from 'longest' to 'first' to match video length
+                # Use 'longest' to preserve full video duration
                 weights = " ".join(["1" for _ in audio_tracks])
-                filter_complex += f"{''.join(audio_inputs)}amix=inputs={len(audio_tracks)}:duration=first:dropout_transition=0:weights='{weights}'[aout]"
+                filter_complex += f"{''.join(audio_inputs)}amix=inputs={len(audio_tracks)}:duration=longest:dropout_transition=0:weights='{weights}'[aout]"
                 audio_output = "[aout]"
             
             # Complete the command
@@ -336,7 +371,7 @@ class FFmpegWrapper:
                 "-c:v", "copy",         # Copy video stream
                 "-c:a", "aac",          # Encode audio
                 "-b:a", "192k",
-                "-shortest",            # Stop when shortest stream (video) ends
+                # Removed -shortest to preserve full video duration
                 "-y",
                 str(output_path)
             ])
@@ -455,6 +490,95 @@ class FFmpegWrapper:
                 "error": str(e)
             }
     
+    async def add_logo_overlay(
+        self,
+        input_path: str,
+        logo_path: str,
+        output_path: str,
+        position: str = "bottom_right",
+        padding: int = 10
+    ) -> Dict[str, Any]:
+        """Add logo overlay to video.
+        
+        Args:
+            input_path: Path to input video
+            logo_path: Path to logo image (PNG with transparency supported)
+            output_path: Path for output video
+            position: Logo position - one of: bottom_right, bottom_left, top_right, top_left
+            padding: Padding from edges in pixels
+        
+        Returns:
+            Dict with success status and output details
+        """
+        try:
+            # Validate logo file exists
+            if not Path(logo_path).exists():
+                raise FileNotFoundError(f"Logo file not found: {logo_path}")
+            
+            # Build position expression based on requested corner
+            position_map = {
+                "bottom_right": f"(main_w-overlay_w-{padding}):(main_h-overlay_h-{padding})",
+                "bottom_left": f"{padding}:(main_h-overlay_h-{padding})",
+                "top_right": f"(main_w-overlay_w-{padding}):{padding}",
+                "top_left": f"{padding}:{padding}"
+            }
+            
+            if position not in position_map:
+                raise ValueError(f"Invalid position: {position}. Must be one of: {', '.join(position_map.keys())}")
+            
+            overlay_position = position_map[position]
+            
+            # Build filter complex
+            # scale2ref scales the logo relative to the video height (20% of height)
+            # mdar maintains aspect ratio
+            filter_complex = (
+                f"[1][0]scale2ref=oh*mdar:ih*0.2[logo][video];"
+                f"[video][logo]overlay={overlay_position}"
+            )
+            
+            # Build command
+            cmd = [
+                self.ffmpeg_path,
+                "-i", str(input_path),      # Video input
+                "-i", str(logo_path),       # Logo input
+                "-filter_complex", filter_complex,
+                "-c:v", "libx264",          # Must re-encode video for overlay
+                "-preset", "fast",          # Fast encoding
+                "-crf", "23",               # Good quality
+                "-c:a", "copy",             # Copy audio without re-encoding
+                "-movflags", "+faststart",
+                "-y",
+                str(output_path)
+            ]
+            
+            print(f"[FFmpeg] Adding logo overlay at {position} with {padding}px padding", file=sys.stderr)
+            
+            # Execute command
+            result = await self._run_ffmpeg(cmd, timeout=120)
+            
+            if not result.get("success", False):
+                return result
+            
+            # Get output info
+            output_info = await self.get_video_info(output_path)
+            
+            return {
+                "success": True,
+                "output_path": output_path,
+                "size": os.path.getsize(output_path),
+                "size_mb": round(os.path.getsize(output_path) / (1024 * 1024), 2),
+                "duration": output_info.get("duration", 0),
+                "logo_position": position,
+                "logo_padding": padding,
+                "command": " ".join(cmd)
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     async def get_video_info(self, video_path: str) -> Dict[str, Any]:
         """Get video metadata using ffprobe."""
         try:
@@ -546,7 +670,7 @@ class FFmpegWrapper:
             
             if proc.returncode != 0:
                 # Include more stderr for debugging (but still limit to prevent overflow)
-                error_msg = stderr.decode()[:2000]
+                error_msg = stderr.decode()[:5000]  # Increased from 2000 to 5000
                 raise RuntimeError(
                     f"FFmpeg failed with code {proc.returncode}: {error_msg}"
                 )

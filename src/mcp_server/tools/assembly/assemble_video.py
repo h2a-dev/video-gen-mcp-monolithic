@@ -13,9 +13,27 @@ async def assemble_video(
     project_id: str,
     scene_ids: Optional[List[str]] = None,
     output_format: str = "mp4",
-    quality_preset: str = "high"
+    quality_preset: str = "high",
+    add_logo: bool = False,
+    logo_position: str = "bottom_right",
+    logo_padding: int = 10,
+    add_end_video: bool = False
 ) -> Dict[str, Any]:
-    """Assemble scenes into a complete video using ffmpeg."""
+    """Assemble scenes into a complete video using ffmpeg.
+    
+    Args:
+        project_id: ID of the project to assemble
+        scene_ids: Optional list of scene IDs to include (uses all if None)
+        output_format: Video format (default: mp4)
+        quality_preset: Quality level - high, medium, low (default: high)
+        add_logo: Whether to add logo overlay (default: False)
+        logo_position: Corner position - bottom_right, bottom_left, top_right, top_left (default: bottom_right)
+        logo_padding: Padding from edges in pixels (default: 10)
+        add_end_video: Whether to append h2a_end.mp4 to the end of the video (default: False)
+    
+    Returns:
+        Dict with assembly results including output path and metadata
+    """
     
     try:
         print(f"[AssembleVideo] Starting assembly for project {project_id}", file=sys.stderr)
@@ -92,6 +110,26 @@ async def assemble_video(
             if video_asset and video_asset.local_path:
                 video_paths.append(video_asset.local_path)
                 print(f"[AssembleVideo] Added video: {video_asset.local_path}", file=sys.stderr)
+        
+        # Add end video if requested
+        if add_end_video:
+            end_video_path = settings.logos_dir / "h2a_end.mp4"
+            if end_video_path.exists():
+                # Check end video compatibility first
+                end_video_info = await ffmpeg_wrapper.get_video_info(str(end_video_path))
+                print(f"[AssembleVideo] End video info: {end_video_info}", file=sys.stderr)
+                
+                if end_video_info.get("error"):
+                    print(f"[AssembleVideo] ERROR: Cannot read end video: {end_video_info['error']}", file=sys.stderr)
+                    print(f"[AssembleVideo] Continuing without end video", file=sys.stderr)
+                else:
+                    video_paths.append(str(end_video_path))
+                    print(f"[AssembleVideo] Added end video: {end_video_path}", file=sys.stderr)
+                    print(f"[AssembleVideo] End video duration: {end_video_info.get('duration', 0):.2f}s", file=sys.stderr)
+                    print(f"[AssembleVideo] End video resolution: {end_video_info.get('width', 0)}x{end_video_info.get('height', 0)}", file=sys.stderr)
+            else:
+                print(f"[AssembleVideo] WARNING: End video not found at {end_video_path}", file=sys.stderr)
+                print(f"[AssembleVideo] Continuing without end video", file=sys.stderr)
         
         # Use ffmpeg_wrapper to concatenate videos
         print(f"[AssembleVideo] Concatenating {len(video_paths)} videos...", file=sys.stderr)
@@ -196,6 +234,58 @@ async def assemble_video(
                 else:
                     print(f"[AssembleVideo] Failed to add {track['type']} track: {audio_result.get('error', 'Unknown error')}", file=sys.stderr)
         
+        # Add logo overlay if requested
+        if add_logo:
+            print(f"[AssembleVideo] Adding logo overlay at {logo_position}", file=sys.stderr)
+            
+            # Determine logo path - check for h2a.png in multiple locations
+            logo_candidates = [
+                settings.storage_dir / "assets" / "logos" / "h2a.png",  # Preferred location
+                settings.base_dir / "h2a.png",  # Fallback to base directory
+                Path("video-gen-mcp-monolithic") / "h2a.png",  # Local relative path
+            ]
+            
+            logo_path = None
+            for candidate in logo_candidates:
+                if candidate.exists():
+                    logo_path = candidate
+                    print(f"[AssembleVideo] Found logo at: {logo_path}", file=sys.stderr)
+                    break
+            
+            if not logo_path:
+                print(f"[AssembleVideo] WARNING: Logo file h2a.png not found in any expected location", file=sys.stderr)
+                print(f"[AssembleVideo] Searched locations: {[str(p) for p in logo_candidates]}", file=sys.stderr)
+            else:
+                # Create temp file for logo overlay
+                import time
+                timestamp = int(time.time())
+                temp_logo_output = settings.get_project_dir(project_id) / f".temp_logo_{timestamp}.{output_format}"
+                temp_files_created.append(temp_logo_output)
+                
+                logo_result = await ffmpeg_wrapper.add_logo_overlay(
+                    input_path=str(output_path),
+                    logo_path=str(logo_path),
+                    output_path=str(temp_logo_output),
+                    position=logo_position,
+                    padding=logo_padding
+                )
+                
+                if logo_result["success"]:
+                    print(f"[AssembleVideo] Successfully added logo overlay", file=sys.stderr)
+                    # Replace original with logo version atomically
+                    backup_path = output_path.with_suffix('.logo_backup')
+                    try:
+                        Path(output_path).rename(backup_path)  # Backup original
+                        Path(temp_logo_output).rename(output_path)  # Move new file
+                        backup_path.unlink()  # Delete backup
+                        temp_files_created.remove(temp_logo_output)  # No longer a temp file
+                    except Exception as e:
+                        print(f"[AssembleVideo] Error replacing file with logo version: {e}", file=sys.stderr)
+                        if backup_path.exists():
+                            backup_path.rename(output_path)
+                else:
+                    print(f"[AssembleVideo] Failed to add logo: {logo_result.get('error', 'Unknown error')}", file=sys.stderr)
+        
         # Clean up temporary files we created
         print(f"[AssembleVideo] Cleaning up {len(temp_files_created)} temporary files", file=sys.stderr)
         for temp_file in temp_files_created:
@@ -248,15 +338,19 @@ async def assemble_video(
                 "video_files": len(video_paths),
                 "audio_tracks_added": len(project.global_audio_tracks),
                 "dynamic_transitions": True,
-                "seconds_trimmed": concat_result.get("trimmed_seconds", 0)
+                "seconds_trimmed": concat_result.get("trimmed_seconds", 0),
+                "logo_added": add_logo,
+                "logo_position": logo_position if add_logo else None,
+                "logo_padding": logo_padding if add_logo else None,
+                "end_video_added": add_end_video
             },
             "next_steps": [
-                "Video is COMPLETE with all audio mixed!",
+                f"Video is COMPLETE with all audio mixed{' and logo overlay added' if add_logo else ''}{' and end video appended' if add_end_video else ''}!",
                 "Download the video from the output path",
                 "Share your creation!"
             ],
-            "status": "Video successfully assembled with ALL audio tracks mixed!",
-            "note": "Video includes all voiceover and music tracks. DO NOT call add_audio_track - audio is already mixed!"
+            "status": f"Video successfully assembled with ALL audio tracks mixed{' and logo overlay' if add_logo else ''}{' and end video' if add_end_video else ''}!",
+            "note": f"Video includes all voiceover and music tracks{' plus logo overlay' if add_logo else ''}{' and H2A end video' if add_end_video else ''}. DO NOT call add_audio_track - audio is already mixed!"
         }
         
     except Exception as e:

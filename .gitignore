@@ -7,10 +7,15 @@ __pycache__/
 venv/
 env/
 ENV/
-.venv
+.venv/
 *.egg-info/
 dist/
 build/
+.python-version.local
+
+# uv
+.uv/
+uv.lock
 
 # Environment
 .env
@@ -50,3 +55,7 @@ downloads/
 
 # MCP specific
 .mcp-cache/
+
+# YouTube OAuth
+token.json
+client_secrets.json

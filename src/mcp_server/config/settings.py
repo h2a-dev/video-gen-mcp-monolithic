@@ -18,6 +18,7 @@ class Settings:
         
         # API configuration
         self.fal_api_key = os.getenv("FALAI_API_KEY", "")
+        self.youtube_api_key = os.getenv("YOUTUBE_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
         
         # Storage paths
         self.base_dir = Path(__file__).parent.parent.parent.parent
@@ -25,11 +26,15 @@ class Settings:
         self.temp_dir = self.storage_dir / "temp"
         self.projects_dir = self.storage_dir / "projects"
         self.templates_dir = self.base_dir / "templates"
+        self.assets_dir = self.storage_dir / "assets"
+        self.logos_dir = self.assets_dir / "logos"
         
         # Ensure directories exist
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.projects_dir.mkdir(parents=True, exist_ok=True)
+        self.assets_dir.mkdir(parents=True, exist_ok=True)
+        self.logos_dir.mkdir(parents=True, exist_ok=True)
         
         # API limits and defaults
         self.max_parallel_downloads = int(os.getenv("MAX_PARALLEL_DOWNLOADS", "5"))
@@ -48,6 +53,15 @@ class Settings:
         self.default_audio_codec = os.getenv("DEFAULT_AUDIO_CODEC", "aac")
         self.default_output_format = os.getenv("DEFAULT_OUTPUT_FORMAT", "mp4")
         
+        # Logo overlay settings
+        self.default_logo_path = self.logos_dir / "h2a.png"
+        self.default_logo_position = os.getenv("DEFAULT_LOGO_POSITION", "bottom_right")
+        self.default_logo_padding = int(os.getenv("DEFAULT_LOGO_PADDING", "10"))
+        
+        # End video settings
+        self.default_end_video = "h2a_end.mp4"
+        self.default_end_video_path = self.logos_dir / self.default_end_video
+        
         # Cost tracking
         self.enable_cost_tracking = os.getenv("ENABLE_COST_TRACKING", "true").lower() == "true"
         self.cost_warning_threshold = float(os.getenv("COST_WARNING_THRESHOLD", "10.0"))  # USD
@@ -56,6 +70,10 @@ class Settings:
         """Validate required settings."""
         if not self.fal_api_key:
             raise ValueError("FALAI_API_KEY environment variable is required")
+        # YouTube API key is optional - only warn if not present
+        if not self.youtube_api_key:
+            import logging
+            logging.warning("YOUTUBE_API_KEY or GOOGLE_API_KEY not set - YouTube search features will not work")
         return True
     
     def get_project_dir(self, project_id: str) -> Path:
