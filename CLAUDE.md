@@ -10,9 +10,20 @@ This is a Video Agent MCP (Model Context Protocol) server that provides AI-power
 
 ### Development
 - **Run server**: `uv run python main.py` or `python main.py`
-- **Install dependencies**: `uv pip install -r requirements.txt`
+- **Install dependencies**: `uv pip install -r requirements.txt` or `uv sync`
+- **Install package in dev mode**: `uv pip install -e .`
+- **Run via script entry**: `uv run video-agent-mcp` (after installing package)
+
+### Testing
 - **Test queue system**: `python test_queue.py`
 - **Test audio sync**: `python test_audio_duration_fix.py`
+- **Test end video**: `python test_end_video.py`
+- **Run pytest suite**: `uv run pytest` (if tests exist)
+
+### Code Quality
+- **Lint code**: `uv run ruff check .`
+- **Format code**: `uv run ruff format .`
+- **Type checking**: `uv run mypy .` (optional)
 
 ### Environment Setup
 Required environment variables:
@@ -172,6 +183,21 @@ When modifying generation or queue functionality:
 2. Test individual tools through the MCP interface
 3. Check cost calculations are accurate
 4. Verify audio/video sync with `test_audio_duration_fix.py`
+5. For complex video assembly, test with `test_end_video.py`
+
+### Common Development Workflows
+
+#### Running the server in Claude Desktop
+1. Update `claude_desktop_config.json` with absolute path to project
+2. Ensure FALAI_API_KEY is set in the env section
+3. Restart Claude Desktop to load the MCP server
+4. Check server status with `get_server_info` tool
+
+#### Adding a new generation model
+1. Update `config/pricing.py` with model pricing
+2. Add model to appropriate constants in `config/settings.py`
+3. Update relevant generation tool in `tools/generation/`
+4. Test with queue system enabled (`use_queue=True`)
 
 ### YouTube Integration
 The server includes comprehensive YouTube support:
@@ -180,6 +206,13 @@ The server includes comprehensive YouTube support:
 - Category fetching for proper metadata
 - Requires `client_secrets.json` for OAuth
 
+## Dependencies and Prerequisites
+
+- **Python 3.11+** (specified in `.python-version`)
+- **FFmpeg** installed on the system for video assembly
+- **uv** package manager (recommended) or pip
+- **FAL AI API key** for all generation operations
+
 ## Important Notes
 
 - The server requires FFmpeg installed on the system for video assembly
@@ -187,5 +220,8 @@ The server includes comprehensive YouTube support:
 - The codebase recently migrated from MCP 1.x to FastMCP 2.0 (no backward compatibility)
 - Queue system provides better visibility into long-running tasks
 - Platform specifications ensure videos meet platform requirements
-- YouTube features require additional API keys and OAuth setup
+- YouTube features require additional API keys and OAuth setup (see YOUTUBE_SETUP.md)
 - Cost tracking is automatic for all AI operations
+- The project uses Ruff for linting/formatting (configured in pyproject.toml)
+- Test files are in the root directory (test_*.py) rather than a tests/ folder
+- The pyproject.toml includes `[tool.hatch.build.targets.wheel]` section to specify package location
