@@ -75,8 +75,9 @@ async def generate_video_from_image(
     motion_prompt: str,
     duration: int = 5,
     aspect_ratio: str = "16:9",
-    motion_strength: float = 0.7,
     model: Optional[str] = None,
+    negative_prompt: Optional[str] = None,
+    cfg_scale: Optional[float] = None,
     prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None,
@@ -90,9 +91,10 @@ async def generate_video_from_image(
         image_url: Image input - can be a URL or local file path
         motion_prompt: Description of the motion to apply
         duration: Video duration in seconds (5 or 10 for Kling, 6 or 10 for Hailuo)
-        aspect_ratio: Video aspect ratio
-        motion_strength: Motion intensity (0.1-1.0) - only used for Kling model
+        aspect_ratio: Video aspect ratio (only used for Hailuo, not Kling)
         model: Video generation model ("kling_2.1" or "hailuo_02"). Defaults to settings
+        negative_prompt: Negative prompt for Kling model (default: "blur, distort, and low quality")
+        cfg_scale: CFG scale for Kling model (0.0-1.0, default: 0.5)
         prompt_optimizer: Whether to use prompt optimization - only used for Hailuo model
         project_id: Optional project to associate with
         scene_id: Optional scene to associate with
@@ -150,21 +152,27 @@ async def generate_video_from_image(
             )
         duration = duration_validation["value"]
         
-        # Validate aspect ratio
-        ratio_validation = validate_aspect_ratio(aspect_ratio, ASPECT_RATIOS)
-        if not ratio_validation["valid"]:
-            return ratio_validation["error_response"]
+        # Validate aspect ratio (only for Hailuo, not supported by Kling)
+        if model == "hailuo_02":
+            ratio_validation = validate_aspect_ratio(aspect_ratio, ASPECT_RATIOS)
+            if not ratio_validation["valid"]:
+                return ratio_validation["error_response"]
         
-        # Validate motion strength (only for models that support it)
-        if "motion_strength" in model_config.get("supports", []):
-            min_strength = model_config.get("min_motion_strength", 0.1)
-            max_strength = model_config.get("max_motion_strength", 1.0)
-            strength_validation = validate_range(
-                motion_strength, "motion_strength", min_strength, max_strength, "Motion strength"
+        # Validate cfg_scale (only for Kling)
+        if model == "kling_2.1":
+            if cfg_scale is None:
+                cfg_scale = model_config.get("default_cfg_scale", 0.5)
+            min_cfg = model_config.get("min_cfg_scale", 0.0)
+            max_cfg = model_config.get("max_cfg_scale", 1.0)
+            cfg_validation = validate_range(
+                cfg_scale, "cfg_scale", min_cfg, max_cfg, "CFG scale"
             )
-            if not strength_validation["valid"]:
-                return strength_validation["error_response"]
-            motion_strength = strength_validation["value"]
+            if not cfg_validation["valid"]:
+                return cfg_validation["error_response"]
+            cfg_scale = cfg_validation["value"]
+            
+            if negative_prompt is None:
+                negative_prompt = model_config.get("default_negative_prompt", "blur, distort, and low quality")
         
         # Calculate cost early for queue response
         cost = calculate_video_cost(model, duration)
@@ -176,14 +184,16 @@ async def generate_video_from_image(
                 "prompt": motion_prompt,
                 "image_url": processed_image_url,
                 "duration": str(duration),  # FAL expects string
-                "aspect_ratio": aspect_ratio
             }
             
             # Add model-specific arguments
-            if model == "kling_2.1" and "motion_strength" in model_config.get("supports", []):
-                fal_arguments["motion_strength"] = motion_strength
-            elif model == "hailuo_02" and "prompt_optimizer" in model_config.get("supports", []):
-                fal_arguments["prompt_optimizer"] = prompt_optimizer
+            if model == "kling_2.1":
+                fal_arguments["negative_prompt"] = negative_prompt
+                fal_arguments["cfg_scale"] = cfg_scale
+            elif model == "hailuo_02":
+                fal_arguments["aspect_ratio"] = aspect_ratio
+                if "prompt_optimizer" in model_config.get("supports", []):
+                    fal_arguments["prompt_optimizer"] = prompt_optimizer
             
             # Submit to queue
             queue_id = await fal_service.submit_generation(
@@ -252,15 +262,17 @@ async def generate_video_from_image(
                 "image_url": processed_image_url,
                 "motion_prompt": motion_prompt,
                 "duration": duration,
-                "aspect_ratio": aspect_ratio,
                 "model": model
             }
             
-            # Add model-specific parameters based on what the model supports
-            if "motion_strength" in model_config.get("supports", []):
-                kwargs["motion_strength"] = motion_strength
-            if "prompt_optimizer" in model_config.get("supports", []):
-                kwargs["prompt_optimizer"] = prompt_optimizer
+            # Add model-specific parameters
+            if model == "kling_2.1":
+                kwargs["negative_prompt"] = negative_prompt
+                kwargs["cfg_scale"] = cfg_scale
+            elif model == "hailuo_02":
+                kwargs["aspect_ratio"] = aspect_ratio
+                if "prompt_optimizer" in model_config.get("supports", []):
+                    kwargs["prompt_optimizer"] = prompt_optimizer
             
             result = await fal_service.generate_video_from_image(**kwargs)
         
@@ -275,25 +287,28 @@ async def generate_video_from_image(
             "model": model,
             "source_image": image_url,
             "motion_prompt": motion_prompt,
-            "duration": duration,
-            "aspect_ratio": aspect_ratio
+            "duration": duration
         }
         
         generation_params = {
             "image_url": image_url,
             "motion_prompt": motion_prompt,
             "duration": duration,
-            "aspect_ratio": aspect_ratio,
             "model": model
         }
         
-        # Add model-specific metadata based on what the model supports
-        if "motion_strength" in model_config.get("supports", []):
-            metadata["motion_strength"] = motion_strength
-            generation_params["motion_strength"] = motion_strength
-        if "prompt_optimizer" in model_config.get("supports", []):
-            metadata["prompt_optimizer"] = prompt_optimizer
-            generation_params["prompt_optimizer"] = prompt_optimizer
+        # Add model-specific metadata
+        if model == "kling_2.1":
+            metadata["negative_prompt"] = negative_prompt
+            metadata["cfg_scale"] = cfg_scale
+            generation_params["negative_prompt"] = negative_prompt
+            generation_params["cfg_scale"] = cfg_scale
+        elif model == "hailuo_02":
+            metadata["aspect_ratio"] = aspect_ratio
+            generation_params["aspect_ratio"] = aspect_ratio
+            if "prompt_optimizer" in model_config.get("supports", []):
+                metadata["prompt_optimizer"] = prompt_optimizer
+                generation_params["prompt_optimizer"] = prompt_optimizer
         
         asset = Asset(
             type=AssetType.VIDEO,
@@ -362,12 +377,14 @@ async def generate_video_from_image(
                 "model": model,
                 "motion_prompt": motion_prompt,
                 "duration": duration,
-                "aspect_ratio": aspect_ratio,
                 "source_image": image_url,
-                **({k: v for k, v in [
-                    ("motion_strength", motion_strength) if "motion_strength" in model_config.get("supports", []) else (None, None),
-                    ("prompt_optimizer", prompt_optimizer) if "prompt_optimizer" in model_config.get("supports", []) else (None, None)
-                ] if k is not None})
+                **({
+                    "negative_prompt": negative_prompt,
+                    "cfg_scale": cfg_scale
+                } if model == "kling_2.1" else {
+                    "aspect_ratio": aspect_ratio,
+                    "prompt_optimizer": prompt_optimizer
+                } if model == "hailuo_02" else {})
             },
             "project_association": {
                 "project_id": project_id,

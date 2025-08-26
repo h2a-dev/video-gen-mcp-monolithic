@@ -237,18 +237,23 @@ class FALClient:
         self, image_url: str, prompt: str, duration: int, aspect_ratio: str, **kwargs
     ) -> Dict[str, Any]:
         """Run Kling 2.1 video generation with retry logic."""
-        # Remove any hailuo-specific parameters
+        # Remove any hailuo-specific parameters and aspect_ratio (not supported by Kling)
         kwargs_copy = kwargs.copy()
         kwargs_copy.pop('prompt_optimizer', None)
+        kwargs_copy.pop('aspect_ratio', None)  # Remove if passed in kwargs
+        
+        # Extract Kling-specific parameters with defaults
+        negative_prompt = kwargs_copy.pop('negative_prompt', 'blur, distort, and low quality')
+        cfg_scale = kwargs_copy.pop('cfg_scale', 0.5)
         
         return await self._run_with_retry(
-            model_id="fal-ai/kling-video/v2.1/standard/image-to-video",
+            model_id="fal-ai/kling-video/v2.1/master/image-to-video",
             arguments={
                 "prompt": prompt,
                 "image_url": image_url,
                 "duration": str(duration),
-                "aspect_ratio": aspect_ratio,
-                **kwargs_copy
+                "negative_prompt": negative_prompt,
+                "cfg_scale": cfg_scale
             }
         )
     

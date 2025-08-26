@@ -5,11 +5,12 @@ VIDEO_MODELS = {
     "kling_2.1": {
         "valid_durations": [5, 10],
         "cost_per_second": 0.05,
-        "supports": ["motion_strength"],
-        "fal_model_id": "fal-ai/kling-video/v2.1/standard/image-to-video",
-        "default_motion_strength": 0.7,
-        "min_motion_strength": 0.1,
-        "max_motion_strength": 1.0
+        "supports": ["negative_prompt", "cfg_scale"],
+        "fal_model_id": "fal-ai/kling-video/v2.1/master/image-to-video",
+        "default_negative_prompt": "blur, distort, and low quality",
+        "default_cfg_scale": 0.5,
+        "min_cfg_scale": 0.0,
+        "max_cfg_scale": 1.0
     },
     "hailuo_02": {
         "valid_durations": [6, 10],
