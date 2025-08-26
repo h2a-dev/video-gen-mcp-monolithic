@@ -29,7 +29,8 @@ from .tools.utility import (
     upload_image_file as upload_image_file_impl,
     get_youtube_categories as get_youtube_categories_impl,
     analyze_youtube_video as analyze_youtube_video_impl,
-    youtube_publish as youtube_publish_impl
+    youtube_publish as youtube_publish_impl,
+    get_youtube_channel_details_by_video_id as get_youtube_channel_details_impl
 )
 from .tools.queue import (
     get_queue_status as get_queue_status_impl,
@@ -214,7 +215,8 @@ async def generate_video_from_image(
     duration: Union[int, str] = 5,
     aspect_ratio: str = "16:9",
     model: Optional[str] = None,
-    motion_strength: Union[float, str] = 0.7,
+    negative_prompt: Optional[str] = None,
+    cfg_scale: Optional[Union[float, str]] = None,
     prompt_optimizer: bool = True,
     project_id: Optional[str] = None,
     scene_id: Optional[str] = None,
@@ -228,9 +230,10 @@ async def generate_video_from_image(
         image_url: URL or local path of the source image
         motion_prompt: Description of desired motion/animation
         duration: Video duration in seconds (5 or 10 for Kling, 6 or 10 for Hailuo)
-        aspect_ratio: Video aspect ratio
-        motion_strength: Motion intensity (0.0-1.0) - only used for Kling model
+        aspect_ratio: Video aspect ratio (only used for Hailuo, not Kling)
         model: Video generation model ("kling_2.1" or "hailuo_02"). Defaults to settings
+        negative_prompt: Negative prompt for Kling model (default: "blur, distort, and low quality")
+        cfg_scale: CFG scale for Kling model (0.0-1.0, default: 0.5)
         prompt_optimizer: Whether to use prompt optimization - only used for Hailuo model
         project_id: Optional project to associate with
         scene_id: Optional scene to associate with
@@ -243,11 +246,11 @@ async def generate_video_from_image(
     # Convert string parameters to proper types if needed
     if isinstance(duration, str):
         duration = int(duration)
-    if isinstance(motion_strength, str):
-        motion_strength = float(motion_strength)
+    if cfg_scale is not None and isinstance(cfg_scale, str):
+        cfg_scale = float(cfg_scale)
     return await generate_video_from_image_impl(
         image_url, motion_prompt, duration, aspect_ratio, 
-        motion_strength, model, prompt_optimizer, project_id, scene_id,
+        model, negative_prompt, cfg_scale, prompt_optimizer, project_id, scene_id,
         use_queue, return_queue_id
     )
 
@@ -566,6 +569,43 @@ async def analyze_youtube_video(
 
 
 @mcp.tool()
+async def get_youtube_channel_details_by_video_id(
+    video_id: str
+) -> Dict[str, Any]:
+    """
+    Get detailed information about a YouTube channel based on a video ID.
+    
+    This tool retrieves comprehensive channel information by first finding the
+    channel that owns the specified video, then fetching the channel's statistics,
+    metadata, and content details.
+    
+    Args:
+        video_id: YouTube video ID (e.g., "dQw4w9WgXcQ")
+    
+    Returns:
+        Dictionary containing:
+        - success: Whether the request was successful
+        - channel: Channel details including:
+            - channel_id: Unique channel identifier
+            - title: Channel name
+            - description: Channel description
+            - custom_url: Custom channel URL (if set)
+            - published_at: Channel creation date
+            - country: Channel country (if set)
+            - thumbnail_url: Channel thumbnail image URL
+            - subscriber_count: Number of subscribers
+            - video_count: Total number of videos
+            - view_count: Total channel views
+            - hidden_subscriber_count: Whether subscriber count is hidden
+            - uploads_playlist_id: ID of the uploads playlist
+            - video_id: The original video ID used for the query
+        - video_id: The video ID used for the query
+        - error: Error message if unsuccessful
+    """
+    return await get_youtube_channel_details_impl(video_id)
+
+
+@mcp.tool()
 async def youtube_publish(
     project_id: str,
     title: str,
@@ -663,7 +703,7 @@ async def get_youtube_video_details_tool(video_id: str) -> Dict[str, Any]:
 @mcp.tool()
 async def get_youtube_trending_videos_tool(
     region_code: str = "US",
-    category_id: Optional[str] = 42,
+    category_id: Optional[str] = None,
     max_results: int = 10
 ) -> Dict[str, Any]:
     """Get trending YouTube videos for a specific region.
@@ -671,7 +711,7 @@ async def get_youtube_trending_videos_tool(
     Args:
         region_code: ISO 3166-1 alpha-2 country code (default: "US")
                     Examples: "US", "UK", "CA", "AU", "DE", "FR", "JP", "BR"
-        category_id: Optional YouTube category ID to filter by
+        category_id: Optional YouTube category ID to filter by (Note: may not work with all regions)
                     (use get_youtube_categories to find category IDs)
         max_results: Maximum number of results (1-50, default: 10)
     

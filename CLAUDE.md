@@ -9,10 +9,11 @@ This is a Video Agent MCP (Model Context Protocol) server that provides AI-power
 ## Key Commands
 
 ### Development
-- **Run server**: `uv run python main.py` or `python main.py`
-- **Install dependencies**: `uv pip install -r requirements.txt` or `uv sync`
+- **Run server**: `uv run python main.py`
+- **Install dependencies**: `uv sync` or `uv pip install -r requirements.txt`
 - **Install package in dev mode**: `uv pip install -e .`
 - **Run via script entry**: `uv run video-agent-mcp` (after installing package)
+- **Install dev dependencies**: `uv sync --dev` or `uv pip install -e ".[dev]"`
 
 ### Testing
 - **Test queue system**: `python test_queue.py`
@@ -217,7 +218,7 @@ The server includes comprehensive YouTube support:
 
 - The server requires FFmpeg installed on the system for video assembly
 - All generation operations require valid FAL AI API key
-- The codebase recently migrated from MCP 1.x to FastMCP 2.0 (no backward compatibility)
+- The codebase uses FastMCP 2.0 (migrated from MCP 1.x, no backward compatibility)
 - Queue system provides better visibility into long-running tasks
 - Platform specifications ensure videos meet platform requirements
 - YouTube features require additional API keys and OAuth setup (see YOUTUBE_SETUP.md)
@@ -225,3 +226,4 @@ The server includes comprehensive YouTube support:
 - The project uses Ruff for linting/formatting (configured in pyproject.toml)
 - Test files are in the root directory (test_*.py) rather than a tests/ folder
 - The pyproject.toml includes `[tool.hatch.build.targets.wheel]` section to specify package location
+- When working with YouTube tools, check both `youtube_search.py` and tools in `utility/` folder

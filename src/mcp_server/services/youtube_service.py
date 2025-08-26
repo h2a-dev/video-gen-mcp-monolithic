@@ -287,7 +287,7 @@ class YouTubeService:
     async def get_trending_videos(
         self,
         region_code: str = "US",
-        category_id: Optional[str] = "42",
+        category_id: Optional[str] = None,
         max_results: int = 10,
         locale: Optional[str] = "en_US"
     ) -> Dict[str, Any]:
@@ -295,7 +295,7 @@ class YouTubeService:
         
         Args:
             region_code: ISO 3166-1 alpha-2 country code (default: US)
-            category_id: YouTube category ID (default: 42 for Shorts)
+            category_id: YouTube category ID (optional - note: may not work with all regions)
             max_results: Maximum number of results (1-50, default: 10)
             locale: The locale for the API response (default: en_US)
             
@@ -320,6 +320,8 @@ class YouTubeService:
             if locale:
                 params["hl"] = locale
             
+            # Note: videoCategoryId parameter with chart="mostPopular" is not supported in all regions
+            # Only add if explicitly requested
             if category_id:
                 params["videoCategoryId"] = category_id
             
@@ -616,6 +618,93 @@ class YouTubeService:
                 error = None
         
         return response
+    
+    async def get_channel_details_by_video_id(self, video_id: str) -> Dict[str, Any]:
+        """Get channel details based on a video ID.
+        
+        First fetches the video to get the channel ID, then fetches channel details.
+        
+        Args:
+            video_id: YouTube video ID
+            
+        Returns:
+            Dictionary with channel details or error info
+        """
+        try:
+            # Check if API key is available
+            if not self.youtube:
+                return {
+                    "success": False,
+                    "error": "YouTube API key not configured. Set GOOGLE_API_KEY or YOUTUBE_API_KEY environment variable."
+                }
+            
+            # First, get the video details to extract channel ID
+            video_response = self.youtube.videos().list(
+                part="snippet",
+                id=video_id
+            ).execute()
+            
+            items = video_response.get("items", [])
+            if not items:
+                return {
+                    "success": False,
+                    "error": f"Video with ID {video_id} not found"
+                }
+            
+            channel_id = items[0]["snippet"]["channelId"]
+            
+            # Now get the channel details
+            channel_response = self.youtube.channels().list(
+                part="snippet,contentDetails,statistics",
+                id=channel_id
+            ).execute()
+            
+            channel_items = channel_response.get("items", [])
+            if not channel_items:
+                return {
+                    "success": False,
+                    "error": f"Channel with ID {channel_id} not found"
+                }
+            
+            channel = channel_items[0]
+            
+            # Parse channel data
+            channel_data = {
+                "channel_id": channel["id"],
+                "title": channel["snippet"]["title"],
+                "description": channel["snippet"]["description"],
+                "custom_url": channel["snippet"].get("customUrl"),
+                "published_at": channel["snippet"]["publishedAt"],
+                "country": channel["snippet"].get("country"),
+                "thumbnail_url": channel["snippet"]["thumbnails"]["high"]["url"],
+                "subscriber_count": int(channel["statistics"].get("subscriberCount", 0)),
+                "video_count": int(channel["statistics"].get("videoCount", 0)),
+                "view_count": int(channel["statistics"].get("viewCount", 0)),
+                "hidden_subscriber_count": channel["statistics"].get("hiddenSubscriberCount", False),
+                "uploads_playlist_id": channel["contentDetails"]["relatedPlaylists"]["uploads"],
+                "video_id": video_id  # Include the original video ID for reference
+            }
+            
+            return {
+                "success": True,
+                "channel": channel_data,
+                "video_id": video_id
+            }
+            
+        except HttpError as e:
+            error_details = e.error_details[0] if e.error_details else {}
+            logger.error(f"YouTube API error: {error_details.get('message', str(e))}")
+            return {
+                "success": False,
+                "error": f"YouTube API error: {error_details.get('message', str(e))}",
+                "error_code": e.resp.status
+            }
+        except Exception as e:
+            logger.error(f"Error getting channel details: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}"
+            }
 
 
 # Singleton instance
